@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { getRedis } from '../lib/redis';
+import { getCacheBackend, tryConnectRedis } from '../lib/redis';
 import { pingBinance } from '../services/binance/rest-client';
 import { binanceWs } from '../services/binance/ws-client';
 import { getConnectedClients } from '../services/websocket/ws-broadcast';
@@ -10,7 +10,7 @@ const startTime = Date.now();
 
 router.get('/', async (_req: Request, res: Response) => {
   let dbStatus: 'healthy' | 'degraded' | 'down' = 'down';
-  let redisStatus: 'healthy' | 'degraded' | 'down' = 'down';
+  let redisStatus: 'healthy' | 'degraded' | 'down' | 'memory' = 'down';
 
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -19,24 +19,25 @@ router.get('/', async (_req: Request, res: Response) => {
     dbStatus = 'down';
   }
 
-  try {
-    const redis = getRedis();
-    if (redis) {
-      await redis.ping();
-      redisStatus = 'healthy';
-    }
-  } catch {
-    redisStatus = 'down';
-  }
+  await tryConnectRedis();
+  const backend = getCacheBackend();
+  if (backend === 'redis') redisStatus = 'healthy';
+  else if (backend === 'memory') redisStatus = 'memory';
+  else redisStatus = 'down';
 
   const restHealthy = await pingBinance();
-  const wsHealthy = binanceWs.isConnected;
-  const wsStale = Date.now() - binanceWs.lastMessageTimestamp > 60_000;
+  const wsReceiving = binanceWs.isReceiving;
+  const wsConnected = binanceWs.isConnected;
+  const wsStatus: 'healthy' | 'degraded' | 'down' = wsReceiving
+    ? 'healthy'
+    : wsConnected || restHealthy
+      ? 'degraded'
+      : 'down';
 
   res.json({
     status: dbStatus === 'healthy' && restHealthy ? 'healthy' : 'degraded',
     restApi: restHealthy ? 'healthy' : 'down',
-    websocket: wsHealthy && !wsStale ? 'healthy' : wsHealthy ? 'degraded' : 'down',
+    websocket: wsStatus,
     database: dbStatus,
     redis: redisStatus,
     activeSymbols: await prisma.symbol.count({ where: { isActive: true } }),

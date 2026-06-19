@@ -24,6 +24,7 @@ class IngestionService {
   private dbEnabled = false;
   private scoringTimer: NodeJS.Timeout | null = null;
   private oiRefreshTimer: NodeJS.Timeout | null = null;
+  private restFallbackTimer: NodeJS.Timeout | null = null;
   private symbolIdMap = new Map<string, string>();
   private symbolMeta = new Map<string, { baseAsset: string }>();
 
@@ -44,6 +45,7 @@ class IngestionService {
       binanceWs.subscribeTicker((ticker) => this.handleTickerUpdate(ticker));
       binanceWs.subscribeMarkPrice((mark) => this.handleMarkPriceUpdate(mark));
       binanceWs.connect();
+      this.startRestFallback();
 
       this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
       this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
@@ -61,9 +63,54 @@ class IngestionService {
     this.isRunning = false;
     if (this.scoringTimer) clearInterval(this.scoringTimer);
     if (this.oiRefreshTimer) clearInterval(this.oiRefreshTimer);
+    if (this.restFallbackTimer) clearInterval(this.restFallbackTimer);
     this.scoringTimer = null;
     this.oiRefreshTimer = null;
+    this.restFallbackTimer = null;
     binanceWs.disconnect(true);
+  }
+
+  private startRestFallback(): void {
+    if (this.restFallbackTimer) clearInterval(this.restFallbackTimer);
+    this.restFallbackTimer = setInterval(() => {
+      if (!binanceWs.isReceiving) {
+        void this.pollRestMarketData();
+      }
+    }, 10_000);
+  }
+
+  private async pollRestMarketData(): Promise<void> {
+    try {
+      const [tickers, markPrices] = await Promise.all([get24hTickers(), getPremiumIndex()]);
+      const markMap = new Map(markPrices.map((m) => [m.symbol, m]));
+
+      for (const ticker of tickers) {
+        const symbolId = this.symbolIdMap.get(ticker.symbol);
+        if (!symbolId) continue;
+
+        this.handleTickerUpdate({
+          symbol: ticker.symbol,
+          price: parseFloat(ticker.lastPrice),
+          quoteVolume: parseFloat(ticker.quoteVolume),
+          priceChangePercent: parseFloat(ticker.priceChangePercent),
+          eventTime: Date.now(),
+        });
+
+        const mark = markMap.get(ticker.symbol);
+        if (mark) {
+          this.handleMarkPriceUpdate({
+            symbol: ticker.symbol,
+            markPrice: parseFloat(mark.markPrice),
+            fundingRate: parseFloat(mark.lastFundingRate),
+            eventTime: Date.now(),
+          });
+        }
+      }
+
+      binanceWs.noteActivity();
+    } catch (error) {
+      await logError('ingestion', 'REST fallback poll failed', {}, (error as Error).stack);
+    }
   }
 
   /** Reset partial startup state so ingestion can retry cleanly. */

@@ -7,7 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string(),
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_URL: z.string().optional().default(''),
   JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   BINANCE_API_KEY: z.string().optional(),
