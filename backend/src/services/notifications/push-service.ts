@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import { tryConnectRedis } from '../../lib/redis';
 
 let firebaseApp: import('firebase-admin').app.App | null = null;
 
