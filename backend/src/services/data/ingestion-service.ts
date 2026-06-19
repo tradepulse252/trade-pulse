@@ -28,24 +28,29 @@ class IngestionService {
 
   async start(): Promise<void> {
     if (this.isRunning) return;
-    this.isRunning = true;
 
     this.dbEnabled = await this.checkDatabase();
     console.log(`[ingestion] Mode: ${this.dbEnabled ? 'database + live' : 'live-only (no DB)'}`);
     console.log(`[ingestion] Binance API key: ${env.BINANCE_API_KEY ? 'configured' : 'not set (using public endpoints)'}`);
 
-    await this.syncSymbols();
-    await this.initialDataLoad();
-    await this.refreshOpenInterest();
-    await this.runScoringCycle(); // immediate first score
+    try {
+      await this.syncSymbols();
+      await this.initialDataLoad();
+      await this.refreshOpenInterest();
+      await this.runScoringCycle();
 
-    binanceWs.subscribeTicker((ticker) => this.handleTickerUpdate(ticker));
-    binanceWs.subscribeMarkPrice((mark) => this.handleMarkPriceUpdate(mark));
-    binanceWs.connect();
+      binanceWs.subscribeTicker((ticker) => this.handleTickerUpdate(ticker));
+      binanceWs.subscribeMarkPrice((mark) => this.handleMarkPriceUpdate(mark));
+      binanceWs.connect();
 
-    this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
-    this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
-    console.log(`[ingestion] Live — tracking ${this.symbolIdMap.size} symbols from Binance`);
+      this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
+      this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
+      this.isRunning = true;
+      console.log(`[ingestion] Live — tracking ${this.symbolIdMap.size} symbols from Binance`);
+    } catch (error) {
+      this.isRunning = false;
+      throw error;
+    }
   }
 
   stop(): void {

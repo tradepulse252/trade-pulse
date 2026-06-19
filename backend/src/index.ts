@@ -48,19 +48,31 @@ async function bootstrap() {
     console.warn('⚠️  Redis unavailable — caching disabled');
   }
 
-  await ingestionService.start();
-  await initPushNotifications();
-  try {
-    await processPushQueue();
-  } catch {
-    console.warn('⚠️  Push notification queue unavailable');
-  }
+  const startIngestion = async () => {
+    try {
+      await ingestionService.start();
+    } catch (err) {
+      console.warn('⚠️  Binance ingestion unavailable:', (err as Error).message);
+    }
+  };
 
   server.listen(env.PORT, () => {
     console.log(`🚀 Trade-Pulse API running on port ${env.PORT}`);
     console.log(`📡 WebSocket available at ws://localhost:${env.PORT}/ws`);
     console.log(`🌍 Environment: ${env.NODE_ENV}`);
   });
+
+  void startIngestion();
+  setInterval(() => {
+    if (ingestionService.getTrackedSymbolCount() === 0) void startIngestion();
+  }, 60_000);
+
+  await initPushNotifications();
+  try {
+    await processPushQueue();
+  } catch {
+    console.warn('⚠️  Push notification queue unavailable');
+  }
 }
 
 bootstrap().catch((err) => {
