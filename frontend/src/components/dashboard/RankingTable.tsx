@@ -19,6 +19,8 @@ interface RankingTableProps {
   opportunities: Opportunity[];
   loading?: boolean;
   timeframe?: TimeframeKey;
+  isFiltered?: boolean;
+  totalCount?: number;
 }
 
 function ChangeCell({ value }: { value: number }) {
@@ -30,7 +32,13 @@ function ChangeCell({ value }: { value: number }) {
   );
 }
 
-export function RankingTable({ opportunities, loading, timeframe = '1h' }: RankingTableProps) {
+export function RankingTable({
+  opportunities,
+  loading,
+  timeframe = '1h',
+  isFiltered = false,
+  totalCount = 0,
+}: RankingTableProps) {
   const tfLabel = getTimeframeLabel(timeframe);
 
   if (loading) {
@@ -42,9 +50,13 @@ export function RankingTable({ opportunities, loading, timeframe = '1h' }: Ranki
   }
 
   if (opportunities.length === 0) {
+    const message =
+      isFiltered && totalCount > 0
+        ? 'No opportunities match your filters'
+        : 'Waiting for live market data from Binance…';
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No opportunities match your filters
+        {message}
       </div>
     );
   }

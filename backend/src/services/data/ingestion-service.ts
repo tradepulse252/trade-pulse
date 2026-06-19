@@ -20,6 +20,7 @@ class IngestionService {
   private marketData = new Map<string, MarketSnapshot>();
   private liveOpportunities: OpportunityResult[] = [];
   private isRunning = false;
+  private starting = false;
   private dbEnabled = false;
   private scoringTimer: NodeJS.Timeout | null = null;
   private oiRefreshTimer: NodeJS.Timeout | null = null;
@@ -27,7 +28,8 @@ class IngestionService {
   private symbolMeta = new Map<string, { baseAsset: string }>();
 
   async start(): Promise<void> {
-    if (this.isRunning) return;
+    if (this.isRunning || this.starting) return;
+    this.starting = true;
 
     this.dbEnabled = await this.checkDatabase();
     console.log(`[ingestion] Mode: ${this.dbEnabled ? 'database + live' : 'live-only (no DB)'}`);
@@ -50,6 +52,8 @@ class IngestionService {
     } catch (error) {
       this.isRunning = false;
       throw error;
+    } finally {
+      this.starting = false;
     }
   }
 
@@ -57,7 +61,37 @@ class IngestionService {
     this.isRunning = false;
     if (this.scoringTimer) clearInterval(this.scoringTimer);
     if (this.oiRefreshTimer) clearInterval(this.oiRefreshTimer);
+    this.scoringTimer = null;
+    this.oiRefreshTimer = null;
     binanceWs.disconnect(true);
+  }
+
+  /** Reset partial startup state so ingestion can retry cleanly. */
+  prepareRestart(): void {
+    this.stop();
+    this.symbolIdMap.clear();
+    this.symbolMeta.clear();
+    this.marketData.clear();
+    this.liveOpportunities = [];
+  }
+
+  isActive(): boolean {
+    return this.isRunning;
+  }
+
+  /** Ensure ranked opportunities are available (re-score or restart ingestion). */
+  async ensureLiveFeed(): Promise<void> {
+    if (this.liveOpportunities.length > 0) return;
+
+    if (this.marketData.size > 0) {
+      await this.runScoringCycle();
+      return;
+    }
+
+    if (!this.isRunning && !this.starting) {
+      this.prepareRestart();
+      await this.start();
+    }
   }
 
   getMode(): string {

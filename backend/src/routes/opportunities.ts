@@ -35,6 +35,7 @@ router.get('/', async (req: Request, res: Response) => {
   };
 
   // Live in-memory feed (always freshest from Binance)
+  await ingestionService.ensureLiveFeed();
   const live = ingestionService.getLiveOpportunities();
   if (live.length > 0) {
     const filtered = applyFilters(live, filters);

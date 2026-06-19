@@ -123,7 +123,13 @@ export default function DashboardPage() {
                 </p>
               </div>
             ) : (
-              <RankingTable opportunities={opportunities} loading={loading} timeframe={timeframe} />
+              <RankingTable
+                opportunities={opportunities}
+                loading={loading}
+                timeframe={timeframe}
+                isFiltered={isFiltered}
+                totalCount={totalCount}
+              />
             )}
           </CardContent>
         </Card>

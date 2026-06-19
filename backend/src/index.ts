@@ -64,7 +64,10 @@ async function bootstrap() {
 
   void startIngestion();
   setInterval(() => {
-    if (ingestionService.getTrackedSymbolCount() === 0) void startIngestion();
+    if (ingestionService.getLiveOpportunities().length === 0) {
+      ingestionService.prepareRestart();
+      void startIngestion();
+    }
   }, 60_000);
 
   await initPushNotifications();
