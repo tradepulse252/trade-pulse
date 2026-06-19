@@ -21,9 +21,8 @@ router.get('/', async (_req: Request, res: Response) => {
 
   await tryConnectRedis();
   const backend = getCacheBackend();
-  if (backend === 'redis') redisStatus = 'healthy';
-  else if (backend === 'memory') redisStatus = 'memory';
-  else redisStatus = 'down';
+  const redisStatus =
+    backend === 'redis' || backend === 'memory' ? 'healthy' : 'down';
 
   const restHealthy = await pingBinance();
   const wsReceiving = binanceWs.isReceiving;
@@ -40,6 +39,7 @@ router.get('/', async (_req: Request, res: Response) => {
     websocket: wsStatus,
     database: dbStatus,
     redis: redisStatus,
+    cacheBackend: backend === 'none' ? null : backend,
     activeSymbols: await prisma.symbol.count({ where: { isActive: true } }),
     connectedClients: getConnectedClients(),
     lastWsMessage: binanceWs.lastMessageTimestamp
