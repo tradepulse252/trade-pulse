@@ -45,8 +45,8 @@ Write-Host '==> Creating Render backend service...'
   --repo "$repoUrl.git" `
   --branch main `
   --root-directory backend `
-  --build-command "npm install --include=dev && npx prisma generate && npm run build" `
-  --start-command "npx prisma migrate deploy && npm start" `
+  --build-command "npm install && npx prisma migrate deploy && npx prisma generate && npm run build" `
+  --start-command "npm start" `
   --health-check-path /api/health `
   --env-var "NODE_ENV=production" `
   --env-var "DATABASE_URL=$databaseUrl" `
