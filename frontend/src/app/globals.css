@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 96%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 96%;
+    --border: 217 33% 17%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: radial-gradient(ellipse at top, hsl(222 47% 8%) 0%, hsl(222 47% 5%) 70%);
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-card/80 backdrop-blur-md border border-border/50;
+  }
+  .data-cell { @apply font-mono text-sm tabular-nums; }
+  .signal-strong-long { @apply text-long; }
+  .signal-weak-long { @apply text-emerald-400; }
+  .signal-strong-short { @apply text-short; }
+  .signal-neutral { @apply text-neutral; }
+}

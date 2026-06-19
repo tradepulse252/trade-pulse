@@ -1,0 +1,40 @@
+# Render Blueprint — Trade-Pulse Backend (Free Tier)
+# Deploy: Render Dashboard → New → Blueprint → connect GitHub repo
+
+services:
+  - type: web
+    name: tradepulse-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: BINANCE_REST_BASE
+        value: https://fapi.binance.com
+      - key: BINANCE_WS_BASE
+        value: wss://fstream.binance.com
+      - key: MIN_VOLUME_USDT
+        value: "1000000"
+      - key: MIN_OPEN_INTEREST_USDT
+        value: "500000"
+      - key: SCORING_INTERVAL_MS
+        value: "5000"
+      - key: OI_REFRESH_INTERVAL_MS
+        value: "60000"
+      - key: REDIS_URL
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false

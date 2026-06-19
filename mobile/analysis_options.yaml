@@ -1,0 +1,7 @@
+/// Analysis options for Trade-Pulse mobile app
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    avoid_print: true

@@ -1,0 +1,292 @@
+// Trade-Pulse Prisma Schema
+// Optimized for high-throughput time-series metrics ingestion
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum SignalType {
+  STRONG_LONG
+  WEAK_LONG
+  STRONG_SHORT
+  NEUTRAL
+}
+
+enum AlertType {
+  NEW_STRONG_LONG
+  NEW_STRONG_SHORT
+  OI_SPIKE
+  VOLUME_SPIKE
+  FUNDING_FLIP
+  SCORE_THRESHOLD
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum Timeframe {
+  M5
+  M15
+  M30
+  H1
+  H2
+  H4
+  H24
+  D7
+}
+
+// ─── Users ───────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  role          UserRole  @default(USER)
+  fcmToken      String?   // Firebase push notification token
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  watchlists    WatchlistItem[]
+  alerts        Alert[]
+  alertSettings AlertSetting[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ─── Trading Symbols ─────────────────────────────────────────
+
+model Symbol {
+  id              String   @id @default(cuid())
+  symbol          String   @unique // e.g. BTCUSDT
+  baseAsset       String
+  quoteAsset      String   @default("USDT")
+  isActive        Boolean  @default(true)
+  minQty          Decimal? @db.Decimal(20, 8)
+  tickSize        Decimal? @db.Decimal(20, 8)
+  contractSize    Decimal? @db.Decimal(20, 8)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  prices          PriceSnapshot[]
+  openInterest    OpenInterestSnapshot[]
+  volumes         VolumeSnapshot[]
+  fundingRates    FundingRateSnapshot[]
+  signals         Signal[]
+  growthMetrics   GrowthMetric[]
+  watchlistItems  WatchlistItem[]
+  alerts          Alert[]
+
+  @@index([isActive])
+  @@index([symbol])
+  @@map("symbols")
+}
+
+// ─── Price Snapshots (time-series) ───────────────────────────
+
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  symbolId  String
+  price     Decimal  @db.Decimal(20, 8)
+  timestamp DateTime @default(now())
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, timestamp(sort: Desc)])
+  @@map("price_snapshots")
+}
+
+// ─── Open Interest Snapshots ─────────────────────────────────
+
+model OpenInterestSnapshot {
+  id            String   @id @default(cuid())
+  symbolId      String
+  openInterest  Decimal  @db.Decimal(30, 8) // in base asset
+  openInterestValue Decimal @db.Decimal(30, 2) // in USDT
+  timestamp     DateTime @default(now())
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, timestamp(sort: Desc)])
+  @@map("open_interest_snapshots")
+}
+
+// ─── Volume Snapshots ────────────────────────────────────────
+
+model VolumeSnapshot {
+  id          String   @id @default(cuid())
+  symbolId    String
+  volume      Decimal  @db.Decimal(30, 8) // base asset volume
+  volumeUsdt  Decimal  @db.Decimal(30, 2) // quote volume in USDT
+  timestamp   DateTime @default(now())
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, timestamp(sort: Desc)])
+  @@map("volume_snapshots")
+}
+
+// ─── Funding Rate Snapshots ──────────────────────────────────
+
+model FundingRateSnapshot {
+  id          String   @id @default(cuid())
+  symbolId    String
+  fundingRate Decimal  @db.Decimal(12, 8)
+  markPrice   Decimal? @db.Decimal(20, 8)
+  timestamp   DateTime @default(now())
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, timestamp(sort: Desc)])
+  @@map("funding_rate_snapshots")
+}
+
+// ─── Growth Metrics Matrix (cached lookback windows) ─────────
+
+model GrowthMetric {
+  id              String    @id @default(cuid())
+  symbolId        String
+  timeframe       Timeframe
+  priceChangePct  Decimal   @db.Decimal(10, 4)
+  oiChangePct     Decimal   @db.Decimal(10, 4)
+  volumeChangePct Decimal   @db.Decimal(10, 4)
+  calculatedAt    DateTime  @default(now())
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@unique([symbolId, timeframe])
+  @@index([symbolId])
+  @@index([calculatedAt(sort: Desc)])
+  @@map("growth_metrics")
+}
+
+// ─── Opportunity Signals ─────────────────────────────────────
+
+model Signal {
+  id                String     @id @default(cuid())
+  symbolId          String
+  signalType        SignalType
+  opportunityScore  Decimal    @db.Decimal(5, 2) // 0-100
+  price             Decimal    @db.Decimal(20, 8)
+  openInterest      Decimal    @db.Decimal(30, 2)
+  oiChangePct       Decimal    @db.Decimal(10, 4)
+  volumeUsdt        Decimal    @db.Decimal(30, 2)
+  volumeChangePct   Decimal    @db.Decimal(10, 4)
+  fundingRate       Decimal    @db.Decimal(12, 8)
+  priceMomentum     Decimal    @db.Decimal(10, 4)
+  rank              Int?
+  isActive          Boolean    @default(true)
+  detectedAt        DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, isActive])
+  @@index([opportunityScore(sort: Desc)])
+  @@index([signalType])
+  @@index([rank])
+  @@map("signals")
+}
+
+// ─── Watchlist ───────────────────────────────────────────────
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  symbolId  String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol Symbol @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbolId])
+  @@index([userId])
+  @@map("watchlist_items")
+}
+
+// ─── Alerts ──────────────────────────────────────────────────
+
+model Alert {
+  id          String    @id @default(cuid())
+  userId      String
+  symbolId    String?
+  alertType   AlertType
+  title       String
+  message     String
+  metadata    Json?
+  isRead      Boolean   @default(false)
+  isPushed    Boolean   @default(false)
+  triggeredAt DateTime  @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol Symbol? @relation(fields: [symbolId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([triggeredAt(sort: Desc)])
+  @@map("alerts")
+}
+
+// ─── Alert Settings (per-user preferences) ───────────────────
+
+model AlertSetting {
+  id                    String  @id @default(cuid())
+  userId                String
+  enableStrongLong      Boolean @default(true)
+  enableStrongShort     Boolean @default(true)
+  enableOiSpike         Boolean @default(true)
+  enableVolumeSpike     Boolean @default(true)
+  enableFundingFlip     Boolean @default(true)
+  minOpportunityScore   Decimal @default(70) @db.Decimal(5, 2)
+  oiSpikeThresholdPct   Decimal @default(5) @db.Decimal(5, 2)
+  volumeSpikeThresholdPct Decimal @default(10) @db.Decimal(5, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("alert_settings")
+}
+
+// ─── System Health & Logs ────────────────────────────────────
+
+model SystemHealth {
+  id              String   @id @default(cuid())
+  restApiStatus   String   @default("unknown") // healthy | degraded | down
+  wsStatus        String   @default("unknown")
+  lastRestPing    DateTime?
+  lastWsMessage   DateTime?
+  activeSymbols   Int      @default(0)
+  activeUsers     Int      @default(0)
+  alertsToday     Int      @default(0)
+  errorCount      Int      @default(0)
+  recordedAt      DateTime @default(now())
+
+  @@index([recordedAt(sort: Desc)])
+  @@map("system_health")
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  source    String   // binance-rest | binance-ws | scoring-engine | api
+  level     String   // error | warn | info
+  message   String
+  stack     String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([source])
+  @@index([createdAt(sort: Desc)])
+  @@map("error_logs")
+}
