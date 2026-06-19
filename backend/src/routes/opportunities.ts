@@ -35,10 +35,18 @@ router.get('/', async (req: Request, res: Response) => {
   };
 
   // Live in-memory feed (always freshest from Binance)
-  await ingestionService.ensureLiveFeed();
+  void ingestionService.ensureLiveFeed().catch(() => {});
+
   const live = ingestionService.getLiveOpportunities();
   if (live.length > 0) {
     const filtered = applyFilters(live, filters);
+    res.json({ data: filtered, source: 'live', count: filtered.length });
+    return;
+  }
+
+  const quick = ingestionService.getQuickOpportunities();
+  if (quick.length > 0) {
+    const filtered = applyFilters(quick, filters);
     res.json({ data: filtered, source: 'live', count: filtered.length });
     return;
   }

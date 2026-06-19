@@ -106,6 +106,67 @@ class IngestionService {
     return this.liveOpportunities;
   }
 
+  /** Fast in-memory scoring without database history lookups. */
+  getQuickOpportunities(): OpportunityResult[] {
+    const opportunities: OpportunityResult[] = [];
+
+    for (const [symbol, snapshot] of this.marketData) {
+      if (snapshot.volumeUsdt < env.MIN_VOLUME_USDT) continue;
+
+      const history = {
+        price: memoryStore.getHistory(symbol, 'price'),
+        oi: memoryStore.getHistory(symbol, 'oi'),
+        volume: memoryStore.getHistory(symbol, 'volume'),
+      };
+
+      const growthMatrix = buildGrowthMatrix(
+        snapshot.price,
+        snapshot.openInterestValue,
+        snapshot.volumeUsdt,
+        history.price,
+        history.oi,
+        history.volume,
+        [...TIMEFRAMES]
+      );
+
+      const primary = growthMatrix['1h'];
+      if (primary && primary.priceChangePct === 0 && snapshot.priceChange24h !== 0) {
+        primary.priceChangePct = snapshot.priceChange24h;
+      }
+      const lookback = primary ?? { priceChangePct: snapshot.priceChange24h, oiChangePct: 0, volumeChangePct: 0 };
+
+      const signalType = classifySignal(
+        lookback.oiChangePct,
+        lookback.volumeChangePct,
+        snapshot.fundingRate,
+        lookback.priceChangePct
+      );
+
+      const { score, priceMomentum, oiChangePct, volumeChangePct } = calculateOpportunityScore(
+        growthMatrix,
+        snapshot.fundingRate,
+        signalType
+      );
+
+      opportunities.push({
+        symbol,
+        symbolId: snapshot.symbolId,
+        signalType,
+        opportunityScore: score,
+        price: snapshot.price,
+        openInterest: snapshot.openInterestValue,
+        oiChangePct,
+        volumeUsdt: snapshot.volumeUsdt,
+        volumeChangePct,
+        fundingRate: snapshot.fundingRate,
+        priceMomentum: priceMomentum || snapshot.priceChange24h,
+        growthMatrix,
+      });
+    }
+
+    return rankOpportunities(opportunities);
+  }
+
   getMarketData(): MarketSnapshot[] {
     return Array.from(this.marketData.values());
   }
