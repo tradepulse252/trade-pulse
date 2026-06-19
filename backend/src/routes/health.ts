@@ -10,7 +10,6 @@ const startTime = Date.now();
 
 router.get('/', async (_req: Request, res: Response) => {
   let dbStatus: 'healthy' | 'degraded' | 'down' = 'down';
-  let redisStatus: 'healthy' | 'degraded' | 'down' | 'memory' = 'down';
 
   try {
     await prisma.$queryRaw`SELECT 1`;
