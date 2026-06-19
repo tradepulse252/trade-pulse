@@ -9,14 +9,13 @@ const router = Router();
 router.get('/binance', async (_req: Request, res: Response) => {
   const hasApiKey = Boolean(env.BINANCE_API_KEY && env.BINANCE_API_SECRET);
   const restOk = await pingBinance();
-  const wsOk = binanceWs.isConnected;
-  const wsStale = Date.now() - binanceWs.lastMessageTimestamp > 60_000;
+  const wsReceiving = binanceWs.isReceiving;
 
   res.json({
     configured: hasApiKey,
     apiKeySet: Boolean(env.BINANCE_API_KEY),
     restApi: restOk ? 'connected' : 'disconnected',
-    websocket: wsOk && !wsStale ? 'connected' : wsOk ? 'stale' : 'disconnected',
+    websocket: wsReceiving ? 'connected' : restOk ? 'rest-fallback' : 'disconnected',
     lastWsMessage: binanceWs.lastMessageTimestamp
       ? new Date(binanceWs.lastMessageTimestamp).toISOString()
       : null,

@@ -48,13 +48,13 @@ export default function SettingsPage() {
   };
 
   const statusIcon = (s: string) => {
-    if (s === 'connected') return <CheckCircle className="h-4 w-4 text-long" />;
+    if (s === 'connected' || s === 'rest-fallback') return <CheckCircle className="h-4 w-4 text-long" />;
     return <XCircle className="h-4 w-4 text-short" />;
   };
 
   return (
     <div className="min-h-screen">
-      <Header connected={status?.websocket === 'connected'} />
+      <Header connected={status?.websocket === 'connected' || status?.websocket === 'rest-fallback'} />
       <main className="container mx-auto px-4 py-6 space-y-6 max-w-2xl">
         <h1 className="text-2xl font-bold">Binance API Settings</h1>
 
