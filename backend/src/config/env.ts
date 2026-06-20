@@ -23,12 +23,20 @@ const envSchema = z.object({
   VOLUME_SPIKE_THRESHOLD_PCT: z.coerce.number().default(10),
   FUNDING_FLIP_THRESHOLD: z.coerce.number().default(0.0001),
   RESEND_API_KEY: z.string().optional().default(''),
+  /** Resend "from" address — must be @resend.dev (test) or a verified domain. Gmail addresses are rejected by Resend. */
+  RESEND_FROM_ADDRESS: z.string().optional().default(''),
   EMAIL_FROM_NAME: z.string().default('Trade Pulse'),
   EMAIL_FROM_ADDRESS: z.string().default('tradepulse252@gmail.com'),
   EMAIL_FROM: z.string().optional(),
   EMAIL_REPLY_TO: z.string().email().default('tradepulse252@gmail.com'),
   GMAIL_USER: z.string().email().default('tradepulse252@gmail.com'),
   GMAIL_APP_PASSWORD: z.string().optional().default(''),
+  /** Set false on Render free tier — outbound SMTP ports 25/465/587 are blocked. */
+  EMAIL_USE_SMTP: z
+    .enum(['true', 'false'])
+    .optional()
+    .default('true')
+    .transform((v) => v === 'true'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
 });
 
