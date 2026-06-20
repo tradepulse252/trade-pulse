@@ -2,7 +2,7 @@ import { SignalType } from '@prisma/client';
 import { env, TIMEFRAME_TO_PRISMA, TIMEFRAMES } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { cacheSet, publish } from '../../lib/redis';
-import { get24hTickers, getExchangeInfo, getOpenInterest, getPremiumIndex } from '../binance/rest-client';
+import { get24hTickers, getExchangeInfo, getPremiumIndex } from '../binance/rest-client';
 import { binanceWs } from '../binance/ws-client';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import {
@@ -304,54 +304,64 @@ class IngestionService {
   }
 
   private async refreshOpenInterest(): Promise<void> {
-    const symbols = Array.from(this.symbolIdMap.keys());
+    const symbols = Array.from(this.symbolIdMap.keys())
+      .map((symbol) => ({ symbol, volume: this.marketData.get(symbol)?.volumeUsdt ?? 0 }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 50)
+      .map((s) => s.symbol);
+
     if (symbols.length === 0) return;
 
-    const batchSize = 10;
+    const { getOpenInterestBatch, isBinanceIpBanned } = await import('../binance/rest-client');
+    if (isBinanceIpBanned()) {
+      console.warn('[ingestion] Skipping OI refresh — Binance IP rate-limited');
+      return;
+    }
+
+    const oiMap = await getOpenInterestBatch(symbols, {
+      batchSize: 5,
+      batchDelayMs: 350,
+      maxSymbols: 50,
+    });
+
     let refreshed = 0;
 
-    for (let i = 0; i < symbols.length; i += batchSize) {
-      const batch = symbols.slice(i, i + batchSize);
-      const results = await Promise.allSettled(batch.map((s) => getOpenInterest(s)));
+    for (const symbol of symbols) {
+      const oi = oiMap.get(symbol);
+      if (!oi) continue;
 
-      for (let j = 0; j < batch.length; j++) {
-        const result = results[j];
-        if (result.status !== 'fulfilled') continue;
+      const symbolId = this.symbolIdMap.get(symbol)!;
+      const oiBase = parseFloat(oi.openInterest);
+      const existing = this.marketData.get(symbol);
+      const price = existing?.price ?? 0;
+      const oiValue = oiBase * price;
 
-        const symbol = batch[j];
-        const symbolId = this.symbolIdMap.get(symbol)!;
-        const oiBase = parseFloat(result.value.openInterest);
-        const existing = this.marketData.get(symbol);
-        const price = existing?.price ?? 0;
-        const oiValue = oiBase * price;
+      const updated: MarketSnapshot = {
+        symbol,
+        symbolId,
+        price,
+        openInterest: oiBase,
+        openInterestValue: oiValue,
+        volumeUsdt: existing?.volumeUsdt ?? 0,
+        fundingRate: existing?.fundingRate ?? 0,
+        priceChange24h: existing?.priceChange24h ?? 0,
+        timestamp: Date.now(),
+      };
 
-        const updated: MarketSnapshot = {
-          symbol,
-          symbolId,
-          price,
-          openInterest: oiBase,
-          openInterestValue: oiValue,
-          volumeUsdt: existing?.volumeUsdt ?? 0,
-          fundingRate: existing?.fundingRate ?? 0,
-          priceChange24h: existing?.priceChange24h ?? 0,
-          timestamp: Date.now(),
-        };
+      this.marketData.set(symbol, updated);
+      memoryStore.push(symbol, 'oi', oiValue);
+      refreshed++;
 
-        this.marketData.set(symbol, updated);
-        memoryStore.push(symbol, 'oi', oiValue);
-        refreshed++;
-
-        if (this.dbEnabled) {
-          await prisma.openInterestSnapshot
-            .create({
-              data: { symbolId, openInterest: oiBase, openInterestValue: oiValue, timestamp: new Date() },
-            })
-            .catch(() => {});
-        }
+      if (this.dbEnabled) {
+        await prisma.openInterestSnapshot
+          .create({
+            data: { symbolId, openInterest: oiBase, openInterestValue: oiValue, timestamp: new Date() },
+          })
+          .catch(() => {});
       }
     }
 
-    console.log(`[ingestion] OI refreshed for ${refreshed}/${symbols.length} symbols`);
+    console.log(`[ingestion] OI refreshed for ${refreshed}/${symbols.length} top symbols`);
   }
 
   private handleTickerUpdate(ticker: {

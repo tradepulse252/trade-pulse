@@ -13,6 +13,8 @@ interface BinanceStatus {
   configured: boolean;
   apiKeySet: boolean;
   restApi: string;
+  rateLimited?: boolean;
+  rateLimitRetryMinutes?: number;
   websocket: string;
   lastWsMessage: string | null;
   trackedSymbols: number;
@@ -49,6 +51,7 @@ export default function SettingsPage() {
 
   const statusIcon = (s: string) => {
     if (s === 'connected' || s === 'rest-fallback') return <CheckCircle className="h-4 w-4 text-long" />;
+    if (s === 'rate-limited') return <WifiOff className="h-4 w-4 text-amber-400" />;
     return <XCircle className="h-4 w-4 text-short" />;
   };
 
@@ -101,7 +104,14 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <Button onClick={testConnection} className="w-full">
+                {status.rateLimited && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                    Binance temporarily rate-limited this server IP. Retry in ~{status.rateLimitRetryMinutes ?? '?'} min.
+                    Data from other exchanges still works.
+                  </div>
+                )}
+
+                <Button onClick={testConnection} className="w-full" disabled={status.rateLimited}>
                   <RefreshCw className="h-4 w-4 mr-2" /> Test Binance Connection
                 </Button>
                 {testResult && <p className="text-sm text-center">{testResult}</p>}

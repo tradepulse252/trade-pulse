@@ -64,7 +64,7 @@ async function bootstrap() {
   });
 
   void startIngestion();
-  aggregationService.start();
+  setTimeout(() => aggregationService.start(), 20_000);
   setInterval(() => {
     if (ingestionService.getLiveOpportunities().length === 0) {
       ingestionService.prepareRestart();

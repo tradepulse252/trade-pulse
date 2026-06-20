@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
-import { formatPct, formatPrice, getSignalLabel } from '@/lib/utils';
+import { CoinLogo } from '@/components/ui/CoinLogo';
+import { InflowOutflowStrip } from '@/components/dashboard/InflowOutflowStrip';
+import { formatPct, formatPrice } from '@/lib/utils';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
-import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function AggregatedTrendingCard({ market }: { market: AggregatedMarket }) {
@@ -13,24 +14,30 @@ export function AggregatedTrendingCard({ market }: { market: AggregatedMarket })
 
   return (
     <Link href={`/coin/${market.symbol}`} className="block group">
-      <article className="glass-card-hover p-5 h-full flex flex-col">
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <div>
-            <p className="font-semibold text-foreground">{market.baseAsset}</p>
-            <p className="text-xs text-muted-foreground">{market.venueCount} exchanges · agg. data</p>
+      <article className="glass-card-hover p-3 h-full flex flex-col gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <CoinLogo baseAsset={market.baseAsset} iconUrl={market.iconUrl} size={32} />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-foreground truncate leading-tight">{market.baseAsset}</p>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {market.venueCount} exch · score {market.opportunityScore.toFixed(0)}
+            </p>
           </div>
-          <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          <div className="text-right shrink-0">
+            <p className="text-xs font-semibold tabular-nums">{formatPrice(market.price)}</p>
+            <p className={cn('text-[10px] font-medium tabular-nums', positive ? 'text-long' : 'text-short')}>
+              {formatPct(market.priceChange24h)}
+            </p>
+          </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground mb-1">{getSignalLabel(market.signalType)}</p>
-        <p className="text-xs text-muted-foreground mb-0.5">Aggregated Price</p>
-        <p className="text-2xl font-semibold tabular-nums mb-1">{formatPrice(market.price)}</p>
-        <p className={cn('text-sm font-medium tabular-nums mb-4', positive ? 'text-primary' : 'text-short')}>
-          {formatPct(market.priceChange24h)}
-        </p>
+        <Sparkline values={sparkValues} width={160} height={28} positive={positive} className="w-full" />
 
-        <div className="mt-auto -mx-1 -mb-1">
-          <Sparkline values={sparkValues} width={200} height={56} positive={positive} />
+        <div>
+          <p className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1.5">
+            Capital flow · 5m → 24h
+          </p>
+          <InflowOutflowStrip market={market} compact />
         </div>
       </article>
     </Link>

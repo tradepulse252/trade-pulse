@@ -39,7 +39,13 @@ export default function DashboardPage() {
     [markets, filters]
   );
 
-  const trendingTop = useMemo(() => filteredMarkets.slice(0, 3), [filteredMarkets]);
+  const trendingTop = useMemo(
+    () =>
+      [...filteredMarkets]
+        .sort((a, b) => b.opportunityScore - a.opportunityScore)
+        .slice(0, 5),
+    [filteredMarkets]
+  );
 
   const strongLongs = markets.filter((m) => m.signalType === 'STRONG_LONG').length;
   const strongShorts = markets.filter((m) => m.signalType === 'STRONG_SHORT').length;
@@ -72,10 +78,10 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {loading && trendingTop.length === 0
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="glass-card h-[220px] animate-pulse bg-white/[0.02]" />
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="glass-card h-[140px] animate-pulse bg-white/[0.02]" />
                 ))
               : trendingTop.map((m) => <AggregatedTrendingCard key={m.symbol} market={m} />)}
           </div>

@@ -1,18 +1,34 @@
 const CACHE_TTL_MS = 5 * 60 * 1000;
-let marketCapCache: Map<string, number> = new Map();
+
+export interface CoinMarketMeta {
+  marketCap: number;
+  imageUrl: string;
+}
+
+let marketMetaCache: Map<string, CoinMarketMeta> = new Map();
 let lastFetch = 0;
 
 interface CoinGeckoMarket {
   symbol: string;
   market_cap: number;
+  image: string;
 }
 
 export async function fetchMarketCaps(): Promise<Map<string, number>> {
-  if (Date.now() - lastFetch < CACHE_TTL_MS && marketCapCache.size > 0) {
-    return marketCapCache;
+  const meta = await fetchCoinMarketMeta();
+  const caps = new Map<string, number>();
+  for (const [symbol, data] of meta) {
+    caps.set(symbol, data.marketCap);
+  }
+  return caps;
+}
+
+export async function fetchCoinMarketMeta(): Promise<Map<string, CoinMarketMeta>> {
+  if (Date.now() - lastFetch < CACHE_TTL_MS && marketMetaCache.size > 0) {
+    return marketMetaCache;
   }
 
-  const map = new Map<string, number>();
+  const map = new Map<string, CoinMarketMeta>();
 
   try {
     for (let page = 1; page <= 4; page++) {
@@ -23,14 +39,17 @@ export async function fetchMarketCaps(): Promise<Map<string, number>> {
       if (!res.ok) break;
       const coins = (await res.json()) as CoinGeckoMarket[];
       for (const c of coins) {
-        map.set(c.symbol.toUpperCase(), c.market_cap);
+        map.set(c.symbol.toUpperCase(), {
+          marketCap: c.market_cap,
+          imageUrl: c.image,
+        });
       }
       if (coins.length < 250) break;
     }
-    marketCapCache = map;
+    marketMetaCache = map;
     lastFetch = Date.now();
   } catch {
-    return marketCapCache.size > 0 ? marketCapCache : map;
+    return marketMetaCache.size > 0 ? marketMetaCache : map;
   }
 
   return map;

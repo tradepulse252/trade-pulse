@@ -24,6 +24,7 @@ export interface AggregatedMarket {
   totalOpenInterest: number;
   avgFundingRate: number;
   marketCap: number;
+  iconUrl?: string;
   priceChange24h: number;
   oiChangePct: number;
   volumeChangePct: number;

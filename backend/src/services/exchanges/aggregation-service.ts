@@ -1,19 +1,28 @@
 import { SignalType } from '@prisma/client';
-import { env } from '../../config/env';
+import { env, type TimeframeKey } from '../../config/env';
 import { classifySignal, calculateOpportunityScore, rankOpportunities } from '../scoring/opportunity-engine';
+import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
 import { fetchBybitVenues } from './bybit-adapter';
 import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
-import { fetchMarketCaps } from './coingecko-client';
+import { fetchCoinMarketMeta, type CoinMarketMeta } from './coingecko-client';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
 
-const REFRESH_MS = 60_000;
+const REFRESH_MS = 120_000;
+const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
+const CARD_TIMEFRAMES: TimeframeKey[] = ['5m', '15m', '30m', '1h', '2h', '4h', '24h'];
 
 interface PrevSnapshot {
   totalVolumeUsdt: number;
   totalOpenInterest: number;
   timestamp: number;
+}
+
+interface AssetHistory {
+  price: Array<{ value: number; timestamp: Date }>;
+  oi: Array<{ value: number; timestamp: Date }>;
+  volume: Array<{ value: number; timestamp: Date }>;
 }
 
 class AggregationService {
@@ -22,6 +31,7 @@ class AggregationService {
   private losers: GainerLoser[] = [];
   private signals: AggregatedMarket[] = [];
   private previousSnapshots = new Map<string, PrevSnapshot>();
+  private assetHistory = new Map<string, AssetHistory>();
   private lastRefresh = 0;
   private refreshing = false;
   private exchangeStatus: Record<string, 'ok' | 'error'> = {};
@@ -60,7 +70,49 @@ class AggregationService {
     return ((current - previous) / previous) * 100;
   }
 
-  private aggregateVenues(venues: VenueSnapshot[], marketCaps: Map<string, number>): AggregatedMarket[] {
+  private pushAssetHistory(baseAsset: string, price: number, oi: number, volume: number) {
+    const now = new Date();
+    const cutoff = now.getTime() - MAX_HISTORY_MS;
+    let h = this.assetHistory.get(baseAsset) ?? { price: [], oi: [], volume: [] };
+
+    h.price.push({ value: price, timestamp: now });
+    h.oi.push({ value: oi, timestamp: now });
+    h.volume.push({ value: volume, timestamp: now });
+
+    h.price = h.price.filter((s) => s.timestamp.getTime() > cutoff);
+    h.oi = h.oi.filter((s) => s.timestamp.getTime() > cutoff);
+    h.volume = h.volume.filter((s) => s.timestamp.getTime() > cutoff);
+
+    this.assetHistory.set(baseAsset, h);
+  }
+
+  private buildAssetGrowthMatrix(
+    baseAsset: string,
+    price: number,
+    totalOi: number,
+    totalVolume: number,
+    priceChange24h: number,
+    oiChangePct: number,
+    volumeChangePct: number
+  ) {
+    const h = this.assetHistory.get(baseAsset);
+    if (h && h.price.length >= 2) {
+      return buildGrowthMatrix(price, totalOi, totalVolume, h.price, h.oi, h.volume, CARD_TIMEFRAMES);
+    }
+    // Bootstrap until history accumulates (~few refresh cycles)
+    const matrix: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }> = {};
+    for (const tf of CARD_TIMEFRAMES) {
+      const scale = tf === '24h' ? 1 : tf === '4h' ? 4 / 24 : tf === '2h' ? 2 / 24 : tf === '1h' ? 1 / 24 : 0.5 / 24;
+      matrix[tf] = {
+        priceChangePct: priceChange24h * scale,
+        oiChangePct: oiChangePct * scale,
+        volumeChangePct: volumeChangePct * scale,
+      };
+    }
+    return matrix;
+  }
+
+  private aggregateVenues(venues: VenueSnapshot[], marketMeta: Map<string, CoinMarketMeta>): AggregatedMarket[] {
     const byBase = new Map<string, VenueSnapshot[]>();
 
     for (const v of venues) {
@@ -101,13 +153,27 @@ class AggregationService {
       const oiChangePct = prev ? this.pctChange(totalOi, prev.totalOpenInterest) : 0;
       const volumeChangePct = prev ? this.pctChange(totalVolume, prev.totalVolumeUsdt) : 0;
 
-      const growthMatrix = {
-        '1h': { priceChangePct: priceChange24h / 24, oiChangePct, volumeChangePct },
-        '24h': { priceChangePct: priceChange24h, oiChangePct, volumeChangePct },
-      };
+      this.pushAssetHistory(baseAsset, price, totalOi, totalVolume);
 
-      const signalType = classifySignal(oiChangePct, volumeChangePct, avgFundingRate, priceChange24h);
+      const growthMatrix = this.buildAssetGrowthMatrix(
+        baseAsset,
+        price,
+        totalOi,
+        totalVolume,
+        priceChange24h,
+        oiChangePct,
+        volumeChangePct
+      );
+
+      const signalType = classifySignal(
+        growthMatrix['1h']?.oiChangePct ?? oiChangePct,
+        growthMatrix['1h']?.volumeChangePct ?? volumeChangePct,
+        avgFundingRate,
+        growthMatrix['1h']?.priceChangePct ?? priceChange24h / 24
+      );
       const { score, priceMomentum } = calculateOpportunityScore(growthMatrix, avgFundingRate, signalType);
+
+      const meta = marketMeta.get(baseAsset);
 
       results.push({
         baseAsset,
@@ -116,7 +182,8 @@ class AggregationService {
         totalVolumeUsdt: totalVolume,
         totalOpenInterest: totalOi,
         avgFundingRate,
-        marketCap: marketCaps.get(baseAsset) ?? 0,
+        marketCap: meta?.marketCap ?? 0,
+        iconUrl: meta?.imageUrl,
         priceChange24h,
         oiChangePct,
         volumeChangePct,
@@ -180,8 +247,8 @@ class AggregationService {
         })
       );
 
-      const marketCaps = await fetchMarketCaps();
-      const aggregated = this.aggregateVenues(allVenues, marketCaps);
+      const marketMeta = await fetchCoinMarketMeta();
+      const aggregated = this.aggregateVenues(allVenues, marketMeta);
 
       aggregated.sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);
 
