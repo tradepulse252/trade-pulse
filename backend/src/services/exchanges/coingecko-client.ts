@@ -34,7 +34,12 @@ export async function fetchCoinMarketMeta(): Promise<Map<string, CoinMarketMeta>
     for (let page = 1; page <= 4; page++) {
       const res = await fetch(
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}`,
-        { headers: { Accept: 'application/json' } }
+        {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'TradePulse/1.0',
+          },
+        }
       );
       if (!res.ok) break;
       const coins = (await res.json()) as CoinGeckoMarket[];

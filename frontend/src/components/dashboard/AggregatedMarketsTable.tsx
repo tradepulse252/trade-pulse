@@ -12,20 +12,7 @@ interface AggregatedMarketsTableProps {
   search?: string;
 }
 
-function SymbolAvatar({ base }: { base: string }) {
-  const initials = base.slice(0, 2).toUpperCase();
-  const hue = (base.charCodeAt(0) * 17 + (base.charCodeAt(1) || 0) * 7) % 360;
-  return (
-    <div
-      className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-      style={{ background: `hsl(${hue} 55% 45%)` }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-function PctCell({ value }: { value: number }) {
+import { CoinLogo } from '@/components/ui/CoinLogo';({ value }: { value: number }) {
   return (
     <span className={cn('tabular-nums font-medium', value >= 0 ? 'text-long' : 'text-short')}>
       {formatPct(value)}
@@ -84,7 +71,7 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
                 <td className="py-4 px-4 text-muted-foreground tabular-nums">{m.rank ?? idx + 1}</td>
                 <td className="py-4 px-4">
                   <Link href={`/coin/${m.symbol}`} className="flex items-center gap-3">
-                    <SymbolAvatar base={m.baseAsset} />
+                    <CoinLogo baseAsset={m.baseAsset} iconUrl={m.iconUrl} size={32} />
                     <div>
                       <p className="font-medium text-foreground">{m.baseAsset}</p>
                       <p className="text-xs text-muted-foreground">{getSignalLabel(m.signalType)}</p>

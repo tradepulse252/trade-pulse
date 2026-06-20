@@ -7,6 +7,7 @@ import { fetchBybitVenues } from './bybit-adapter';
 import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
 import { fetchCoinMarketMeta, type CoinMarketMeta } from './coingecko-client';
+import { coinCapIconUrl } from './coin-icons';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
 
 const REFRESH_MS = 120_000;
@@ -183,7 +184,7 @@ class AggregationService {
         totalOpenInterest: totalOi,
         avgFundingRate,
         marketCap: meta?.marketCap ?? 0,
-        iconUrl: meta?.imageUrl,
+        iconUrl: meta?.imageUrl ?? coinCapIconUrl(baseAsset),
         priceChange24h,
         oiChangePct,
         volumeChangePct,

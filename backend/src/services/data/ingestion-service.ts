@@ -36,27 +36,41 @@ class IngestionService {
     console.log(`[ingestion] Mode: ${this.dbEnabled ? 'database + live' : 'live-only (no DB)'}`);
     console.log(`[ingestion] Binance API key: ${env.BINANCE_API_KEY ? 'configured' : 'not set (using public endpoints)'}`);
 
+    // WebSocket is independent of REST — register streams and connect first
+    binanceWs.subscribeTicker((ticker) => this.handleTickerUpdate(ticker));
+    binanceWs.subscribeMarkPrice((mark) => this.handleMarkPriceUpdate(mark));
+    binanceWs.connect();
+    this.startRestFallback();
+
     try {
       await this.syncSymbols();
-      await this.initialDataLoad();
-      await this.refreshOpenInterest();
-      await this.runScoringCycle();
-
-      binanceWs.subscribeTicker((ticker) => this.handleTickerUpdate(ticker));
-      binanceWs.subscribeMarkPrice((mark) => this.handleMarkPriceUpdate(mark));
-      binanceWs.connect();
-      this.startRestFallback();
-
-      this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
-      this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
-      this.isRunning = true;
-      console.log(`[ingestion] Live — tracking ${this.symbolIdMap.size} symbols from Binance`);
     } catch (error) {
-      this.isRunning = false;
-      throw error;
-    } finally {
-      this.starting = false;
+      console.warn('[ingestion] Symbol sync skipped:', (error as Error).message);
     }
+
+    try {
+      await this.initialDataLoad();
+    } catch (error) {
+      console.warn('[ingestion] Initial REST load skipped:', (error as Error).message);
+    }
+
+    try {
+      await this.refreshOpenInterest();
+    } catch (error) {
+      console.warn('[ingestion] OI refresh skipped:', (error as Error).message);
+    }
+
+    try {
+      await this.runScoringCycle();
+    } catch (error) {
+      console.warn('[ingestion] Scoring cycle skipped:', (error as Error).message);
+    }
+
+    this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
+    this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
+    this.isRunning = true;
+    console.log(`[ingestion] Live — tracking ${this.symbolIdMap.size} symbols from Binance`);
+    this.starting = false;
   }
 
   stop(): void {
@@ -364,6 +378,16 @@ class IngestionService {
     console.log(`[ingestion] OI refreshed for ${refreshed}/${symbols.length} top symbols`);
   }
 
+  private ensureSymbol(symbol: string): string {
+    let symbolId = this.symbolIdMap.get(symbol);
+    if (!symbolId) {
+      symbolId = symbol;
+      this.symbolIdMap.set(symbol, symbolId);
+      this.symbolMeta.set(symbol, { baseAsset: symbol.replace(/USDT$/, '') });
+    }
+    return symbolId;
+  }
+
   private handleTickerUpdate(ticker: {
     symbol: string;
     price: number;
@@ -371,8 +395,8 @@ class IngestionService {
     priceChangePercent: number;
     eventTime: number;
   }): void {
-    const symbolId = this.symbolIdMap.get(ticker.symbol);
-    if (!symbolId) return;
+    if (!ticker.symbol.endsWith('USDT')) return;
+    const symbolId = this.ensureSymbol(ticker.symbol);
 
     const existing = this.marketData.get(ticker.symbol);
     const snapshot: MarketSnapshot = {
@@ -398,8 +422,23 @@ class IngestionService {
     fundingRate: number;
     eventTime: number;
   }): void {
-    const existing = this.marketData.get(mark.symbol);
-    if (!existing) return;
+    if (!mark.symbol.endsWith('USDT')) return;
+
+    let existing = this.marketData.get(mark.symbol);
+    if (!existing) {
+      const symbolId = this.ensureSymbol(mark.symbol);
+      existing = {
+        symbol: mark.symbol,
+        symbolId,
+        price: mark.markPrice,
+        openInterest: 0,
+        openInterestValue: 0,
+        volumeUsdt: 0,
+        fundingRate: mark.fundingRate,
+        priceChange24h: 0,
+        timestamp: mark.eventTime,
+      };
+    }
 
     existing.fundingRate = mark.fundingRate;
     existing.price = mark.markPrice;

@@ -11,6 +11,14 @@ router.get('/binance', async (_req: Request, res: Response) => {
   const ipBanned = isBinanceIpBanned();
   const restOk = ipBanned ? false : await pingBinance();
   const wsReceiving = binanceWs.isReceiving;
+  const wsConnected = binanceWs.isConnected;
+  const websocketStatus = wsReceiving
+    ? 'connected'
+    : wsConnected
+      ? 'connecting'
+      : restOk
+        ? 'rest-fallback'
+        : 'disconnected';
 
   res.json({
     configured: hasApiKey,
@@ -18,7 +26,7 @@ router.get('/binance', async (_req: Request, res: Response) => {
     restApi: ipBanned ? 'rate-limited' : restOk ? 'connected' : 'disconnected',
     rateLimited: ipBanned,
     rateLimitRetryMinutes: ipBanned ? Math.ceil(getBinanceBanRemainingMs() / 60_000) : 0,
-    websocket: wsReceiving ? 'connected' : restOk ? 'rest-fallback' : 'disconnected',
+    websocket: websocketStatus,
     lastWsMessage: binanceWs.lastMessageTimestamp
       ? new Date(binanceWs.lastMessageTimestamp).toISOString()
       : null,

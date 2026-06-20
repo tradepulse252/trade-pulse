@@ -77,10 +77,9 @@ export class BinanceWsClient extends EventEmitter {
   private addStream(stream: string): void {
     const isNew = !this.streams.has(stream);
     this.streams.add(stream);
+    // Only reconnect when already live — never auto-connect mid-registration
     if (isNew && this.isConnected) {
       this.reconnect();
-    } else if (!this.isConnected && !this.isConnecting) {
-      this.connect();
     }
   }
 
@@ -88,7 +87,7 @@ export class BinanceWsClient extends EventEmitter {
     if (this.isConnecting || this.streams.size === 0) return;
     this.isConnecting = true;
 
-    const streamPath = Array.from(this.streams).join('/');
+    const streamPath = Array.from(this.streams).map(encodeURIComponent).join('/');
     const url = `${env.BINANCE_WS_BASE}/stream?streams=${streamPath}`;
 
     try {
