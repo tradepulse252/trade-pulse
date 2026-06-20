@@ -6,13 +6,15 @@ import { cn, formatFunding, formatNumber, formatPct, formatPrice, getSignalLabel
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { Loader2 } from 'lucide-react';
 
+import { CoinLogo } from '@/components/ui/CoinLogo';
+
 interface AggregatedMarketsTableProps {
   markets: AggregatedMarket[];
   loading?: boolean;
   search?: string;
 }
 
-import { CoinLogo } from '@/components/ui/CoinLogo';({ value }: { value: number }) {
+function PctCell({ value }: { value: number }) {
   return (
     <span className={cn('tabular-nums font-medium', value >= 0 ? 'text-long' : 'text-short')}>
       {formatPct(value)}
