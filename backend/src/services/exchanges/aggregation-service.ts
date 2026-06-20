@@ -8,7 +8,6 @@ import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
-import { normalizeMarketSymbol } from './coin-symbols';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
 
 const REFRESH_MS = 120_000;
@@ -249,8 +248,8 @@ class AggregationService {
         })
       );
 
-      const lookupSymbols = [...new Set(allVenues.map((v) => normalizeMarketSymbol(v.baseAsset)))];
-      const marketMeta = await fetchCoinMarketMeta(lookupSymbols);
+      const baseAssets = [...new Set(allVenues.map((v) => v.baseAsset))];
+      const marketMeta = await fetchCoinMarketMeta(baseAssets);
       const aggregated = this.aggregateVenues(allVenues, marketMeta);
 
       aggregated.sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);

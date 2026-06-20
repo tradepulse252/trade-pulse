@@ -6,7 +6,14 @@ const LOGO_ALIASES: Record<string, string> = {
   '1000floki': 'floki',
   '1000lunc': 'lunc',
   '1000xec': 'xec',
+  '1000rats': 'rats',
+  '1000cat': 'cat',
   btcdom: 'btc',
+  shib1000: 'shib',
+  luna2: 'luna',
+  dodox: 'dodo',
+  ronin: 'ron',
+  beamx: 'beam',
 };
 
 export function normalizeCoinSymbol(baseAsset: string): string {
