@@ -22,6 +22,10 @@ const envSchema = z.object({
   OI_SPIKE_THRESHOLD_PCT: z.coerce.number().default(5),
   VOLUME_SPIKE_THRESHOLD_PCT: z.coerce.number().default(10),
   FUNDING_FLIP_THRESHOLD: z.coerce.number().default(0.0001),
+  RESEND_API_KEY: z.string().optional().default(''),
+  EMAIL_FROM: z.string().default('Trade Pulse <onboarding@resend.dev>'),
+  EMAIL_REPLY_TO: z.string().email().default('tradepulse252@gmail.com'),
+  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
 });
 
 const parsed = envSchema.safeParse(process.env);

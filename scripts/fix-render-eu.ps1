@@ -54,15 +54,26 @@ $envVars = @(
   @{ key = 'MIN_OPEN_INTEREST_USDT'; value = '500000' },
   @{ key = 'SCORING_INTERVAL_MS'; value = '5000' },
   @{ key = 'OI_REFRESH_INTERVAL_MS'; value = '60000' },
-  @{ key = 'REDIS_URL'; value = '' }
+  @{ key = 'REDIS_URL'; value = '' },
+  @{ key = 'FRONTEND_URL'; value = $FrontendUrl },
+  @{ key = 'EMAIL_REPLY_TO'; value = 'tradepulse252@gmail.com' },
+  @{ key = 'EMAIL_FROM'; value = 'Trade Pulse <onboarding@resend.dev>' }
 )
 
-# Set Binance keys from local backend .env if present
-$localEnv = Join-Path $PSScriptRoot '..\backend\.env'
-if (Test-Path $localEnv) {
-  foreach ($line in Get-Content $localEnv) {
+# Set secrets from local .env files (backend/.env and root .env)
+$envFiles = @(
+  (Join-Path $PSScriptRoot '..\backend\.env'),
+  (Join-Path $PSScriptRoot '..\.env')
+)
+foreach ($envFile in $envFiles) {
+  if (-not (Test-Path $envFile)) { continue }
+  foreach ($line in Get-Content $envFile) {
     if ($line -match '^BINANCE_API_KEY=(.+)$') { $envVars += @{ key = 'BINANCE_API_KEY'; value = $Matches[1].Trim() } }
     if ($line -match '^BINANCE_API_SECRET=(.+)$') { $envVars += @{ key = 'BINANCE_API_SECRET'; value = $Matches[1].Trim() } }
+    if ($line -match '^RESEND_API_KEY=(.+)$') { $envVars += @{ key = 'RESEND_API_KEY'; value = $Matches[1].Trim() } }
+    if ($line -match '^EMAIL_FROM=(.+)$') { $envVars += @{ key = 'EMAIL_FROM'; value = $Matches[1].Trim() } }
+    if ($line -match '^EMAIL_REPLY_TO=(.+)$') { $envVars += @{ key = 'EMAIL_REPLY_TO'; value = $Matches[1].Trim() } }
+    if ($line -match '^FRONTEND_URL=(.+)$') { $envVars += @{ key = 'FRONTEND_URL'; value = $Matches[1].Trim() } }
   }
 }
 

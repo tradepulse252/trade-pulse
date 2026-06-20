@@ -9,6 +9,7 @@ interface User {
   email: string;
   name: string | null;
   role: string;
+  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -16,7 +17,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<{ email: string; requiresVerification: boolean }>;
   logout: () => void;
 }
 
@@ -57,11 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error ?? 'Login failed');
-    }
     const data = await res.json();
+    if (!res.ok) {
+      if (data.code === 'EMAIL_NOT_VERIFIED') {
+        throw new Error(`EMAIL_NOT_VERIFIED:${data.email}`);
+      }
+      throw new Error(data.error ?? 'Login failed');
+    }
     localStorage.setItem('tp_token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -73,14 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error ?? 'Registration failed');
-    }
     const data = await res.json();
-    localStorage.setItem('tp_token', data.token);
-    setToken(data.token);
-    setUser(data.user);
+    if (!res.ok) {
+      throw new Error(data.error ?? 'Registration failed');
+    }
+    return { email: data.email as string, requiresVerification: true as boolean };
   };
 
   const logout = () => {

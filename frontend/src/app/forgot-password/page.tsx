@@ -2,37 +2,36 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Header } from '@/components/layout/Header';
-import { Activity } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 
-export default function LoginPage() {
-  const { login } = useAuth();
-  const router = useRouter();
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
     try {
-      await login(email, password);
-      window.location.href = '/';
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Request failed');
+      setSuccess(data.message);
     } catch (err) {
-      const msg = (err as Error).message;
-      if (msg.startsWith('EMAIL_NOT_VERIFIED:')) {
-        const unverifiedEmail = msg.split(':')[1];
-        router.push(`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`);
-        return;
-      }
-      setError(msg);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -45,9 +44,12 @@ export default function LoginPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30 mb-2">
-              <Activity className="h-6 w-6 text-primary" />
+              <KeyRound className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Sign in to Trade-Pulse</CardTitle>
+            <CardTitle>Forgot password</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter your email and we&apos;ll send a reset code and link.
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -55,23 +57,14 @@ export default function LoginPage() {
                 <label className="text-xs text-muted-foreground mb-1 block">Email</label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-muted-foreground">Password</label>
-                  <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
               {error && <p className="text-sm text-short">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
+              {success && <p className="text-sm text-long">{success}</p>}
+              <Button type="submit" className="w-full" disabled={loading || !!success}>
+                {loading ? 'Sending…' : 'Send reset email'}
               </Button>
             </form>
             <p className="text-center text-sm text-muted-foreground mt-4">
-              No account?{' '}
-              <Link href="/register" className="text-primary hover:underline">Register</Link>
+              <Link href="/login" className="text-primary hover:underline">Back to sign in</Link>
             </p>
           </CardContent>
         </Card>
