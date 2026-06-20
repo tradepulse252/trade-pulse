@@ -10,6 +10,7 @@ import { initWebSocketServer } from './services/websocket/ws-broadcast';
 import { ingestionService } from './services/data/ingestion-service';
 import { tryConnectRedis } from './lib/redis';
 import { initPushNotifications, processPushQueue } from './services/notifications/push-service';
+import { aggregationService } from './services/exchanges/aggregation-service';
 
 const app = express();
 const server = createServer(app);
@@ -63,6 +64,7 @@ async function bootstrap() {
   });
 
   void startIngestion();
+  aggregationService.start();
   setInterval(() => {
     if (ingestionService.getLiveOpportunities().length === 0) {
       ingestionService.prepareRestart();

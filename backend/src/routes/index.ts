@@ -7,11 +7,15 @@ import watchlistRoutes from './watchlist';
 import alertsRoutes from './alerts';
 import adminRoutes from './admin';
 import settingsRoutes from './settings';
+import marketsRoutes from './markets';
+import signalsRoutes from './signals';
 
 const router = Router();
 
 router.use('/health', healthRoutes);
 router.use('/opportunities', opportunitiesRoutes);
+router.use('/markets', marketsRoutes);
+router.use('/signals', signalsRoutes);
 router.use('/symbols', symbolsRoutes);
 router.use('/auth', authRoutes);
 router.use('/watchlist', watchlistRoutes);

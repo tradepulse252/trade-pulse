@@ -16,6 +16,36 @@ export interface Opportunity {
   growthMatrix?: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
 }
 
+export interface AggregatedMarket {
+  baseAsset: string;
+  symbol: string;
+  price: number;
+  totalVolumeUsdt: number;
+  totalOpenInterest: number;
+  avgFundingRate: number;
+  marketCap: number;
+  priceChange24h: number;
+  oiChangePct: number;
+  volumeChangePct: number;
+  priceMomentum: number;
+  signalType: string;
+  opportunityScore: number;
+  rank?: number;
+  venueCount: number;
+  exchanges: string[];
+  growthMatrix?: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
+}
+
+export interface GainerLoser {
+  baseAsset: string;
+  symbol: string;
+  price: number;
+  priceChange24h: number;
+  totalVolumeUsdt: number;
+  marketCap: number;
+  exchanges: string[];
+}
+
 export interface OpportunityFilters {
   signalType?: string;
   minOi?: number;
@@ -77,6 +107,25 @@ export async function getOpportunities(filters?: OpportunityFilters): Promise<Op
   const qs = params.toString();
   const result = await fetchApi<{ data: Opportunity[] }>(`/opportunities${qs ? `?${qs}` : ''}`);
   return result.data;
+}
+
+export type MarketSort = 'marketCap' | 'volume' | 'openInterest' | 'funding' | 'score' | 'priceChange';
+
+export async function getAggregatedMarkets(sort: MarketSort = 'marketCap', limit = 200): Promise<AggregatedMarket[]> {
+  const result = await fetchApi<{ data: AggregatedMarket[] }>(`/markets?sort=${sort}&limit=${limit}`);
+  return result.data;
+}
+
+export async function getSignals(limit = 200, signalType?: string): Promise<AggregatedMarket[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (signalType) params.set('signalType', signalType);
+  const result = await fetchApi<{ data: AggregatedMarket[] }>(`/signals?${params}`);
+  return result.data;
+}
+
+export async function getGainersLosers(limit = 15): Promise<{ gainers: GainerLoser[]; losers: GainerLoser[] }> {
+  const result = await fetchApi<{ gainers: GainerLoser[]; losers: GainerLoser[] }>(`/markets/gainers-losers?limit=${limit}`);
+  return { gainers: result.gainers, losers: result.losers };
 }
 
 export async function getCoinDetail(symbol: string): Promise<CoinDetail> {

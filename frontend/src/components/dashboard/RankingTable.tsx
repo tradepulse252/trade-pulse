@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import type { Opportunity } from '@/lib/api';
 import {
   cn,
@@ -9,11 +8,11 @@ import {
   formatNumber,
   formatPct,
   formatPrice,
-  getSignalClass,
   getSignalLabel,
 } from '@/lib/utils';
 import { getGrowthForTimeframe, getTimeframeLabel, type TimeframeKey } from '@/lib/sorting';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
+import { Loader2 } from 'lucide-react';
 
 interface RankingTableProps {
   opportunities: Opportunity[];
@@ -23,10 +22,25 @@ interface RankingTableProps {
   totalCount?: number;
 }
 
-function ChangeCell({ value }: { value: number }) {
+function SymbolAvatar({ symbol }: { symbol: string }) {
+  const base = symbol.replace('USDT', '');
+  const initials = base.slice(0, 2).toUpperCase();
+  const hue = (base.charCodeAt(0) * 17 + (base.charCodeAt(1) || 0) * 7) % 360;
+
   return (
-    <span className={cn('inline-flex items-center gap-0.5', value >= 0 ? 'text-long' : 'text-short')}>
-      {value >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+    <div
+      className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+      style={{ background: `hsl(${hue} 55% 45%)` }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function PctCell({ value }: { value: number }) {
+  const positive = value >= 0;
+  return (
+    <span className={cn('tabular-nums font-medium', positive ? 'text-long' : 'text-short')}>
       {formatPct(value)}
     </span>
   );
@@ -43,8 +57,9 @@ export function RankingTable({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <div className="animate-pulse">Loading opportunities...</div>
+      <div className="flex flex-col items-center justify-center h-80 text-muted-foreground gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-sm">Loading opportunities...</p>
       </div>
     );
   }
@@ -55,8 +70,8 @@ export function RankingTable({
         ? 'No opportunities match your filters'
         : 'Waiting for live market data from Binance…';
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        {message}
+      <div className="flex items-center justify-center h-80 text-muted-foreground">
+        <p className="text-sm">{message}</p>
       </div>
     );
   }
@@ -65,82 +80,68 @@ export function RankingTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wider">
-            <th className="text-left py-3 px-3 font-medium">#</th>
-            <th className="text-left py-3 px-3 font-medium">Symbol</th>
-            <th className="text-right py-3 px-3 font-medium">Price</th>
-            <th className="text-right py-3 px-3 font-medium">Open Interest</th>
-            <th className="text-right py-3 px-3 font-medium">
-              OI Δ <span className="text-primary normal-case">{tfLabel}</span>
-            </th>
-            <th className="text-right py-3 px-3 font-medium">
-              Vol <span className="text-primary normal-case">24hr</span>
-            </th>
-            <th className="text-right py-3 px-3 font-medium">
-              Vol Δ <span className="text-primary normal-case">{tfLabel}</span>
-            </th>
-            <th className="text-right py-3 px-3 font-medium">Funding</th>
-            <th className="text-center py-3 px-3 font-medium">Signal</th>
-            <th className="text-right py-3 px-3 font-medium">Score</th>
+          <tr className="border-b border-white/[0.06] text-muted-foreground text-xs">
+            <th className="text-left py-3.5 px-4 font-medium w-12">#</th>
+            <th className="text-left py-3.5 px-4 font-medium min-w-[140px]">Name</th>
+            <th className="text-right py-3.5 px-4 font-medium">Price</th>
+            <th className="text-right py-3.5 px-4 font-medium">OI Δ {tfLabel}</th>
+            <th className="text-right py-3.5 px-4 font-medium">Vol 24h</th>
+            <th className="text-right py-3.5 px-4 font-medium">Vol Δ {tfLabel}</th>
+            <th className="text-right py-3.5 px-4 font-medium">Funding</th>
+            <th className="text-right py-3.5 px-4 font-medium">Score</th>
+            <th className="text-right py-3.5 px-4 font-medium pr-5 min-w-[100px]">Trend</th>
           </tr>
         </thead>
         <tbody>
           {opportunities.map((opp, idx) => {
             const growth = getGrowthForTimeframe(opp, timeframe);
+            const rank = opp.rank ?? idx + 1;
+            const base = opp.symbol.replace('USDT', '');
+            const sparkValues = getOpportunitySparkline(opp.growthMatrix, opp.priceMomentum);
+            const trendUp = growth.priceChangePct >= 0;
+
             return (
               <tr
                 key={opp.symbol}
-                className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group"
               >
-                <td className="py-2.5 px-3 data-cell text-muted-foreground">
-                  {opp.rank ?? idx + 1}
-                </td>
-                <td className="py-2.5 px-3">
-                  <Link
-                    href={`/coin/${opp.symbol}`}
-                    className="font-semibold text-foreground hover:text-primary flex items-center gap-1 group"
-                  >
-                    {opp.symbol.replace('USDT', '')}
-                    <span className="text-muted-foreground text-xs">/USDT</span>
-                    <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <td className="py-4 px-4 text-muted-foreground tabular-nums">{rank}</td>
+                <td className="py-4 px-4">
+                  <Link href={`/coin/${opp.symbol}`} className="flex items-center gap-3 group/link">
+                    <SymbolAvatar symbol={opp.symbol} />
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground group-hover/link:text-primary transition-colors truncate">
+                        {base}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{getSignalLabel(opp.signalType)}</p>
+                    </div>
                   </Link>
                 </td>
-                <td className="py-2.5 px-3 text-right data-cell">{formatPrice(opp.price)}</td>
-                <td className="py-2.5 px-3 text-right data-cell">${formatNumber(opp.openInterest)}</td>
-                <td className="py-2.5 px-3 text-right data-cell">
-                  <ChangeCell value={growth.oiChangePct} />
+                <td className="py-4 px-4 text-right data-cell text-foreground">{formatPrice(opp.price)}</td>
+                <td className="py-4 px-4 text-right">
+                  <PctCell value={growth.oiChangePct} />
                 </td>
-                <td className="py-2.5 px-3 text-right data-cell" title="24-hour quote volume">
+                <td className="py-4 px-4 text-right data-cell text-muted-foreground">
                   ${formatNumber(opp.volumeUsdt)}
                 </td>
-                <td className="py-2.5 px-3 text-right data-cell">
-                  <ChangeCell value={growth.volumeChangePct} />
+                <td className="py-4 px-4 text-right">
+                  <PctCell value={growth.volumeChangePct} />
                 </td>
                 <td
                   className={cn(
-                    'py-2.5 px-3 text-right data-cell',
-                    opp.fundingRate < 0 ? 'text-long' : opp.fundingRate > 0.0003 ? 'text-short' : ''
+                    'py-4 px-4 text-right data-cell',
+                    opp.fundingRate < 0 ? 'text-long' : opp.fundingRate > 0.0003 ? 'text-short' : 'text-muted-foreground'
                   )}
                 >
                   {formatFunding(opp.fundingRate)}
                 </td>
-                <td className="py-2.5 px-3 text-center">
-                  <span className={cn('text-xs font-medium', getSignalClass(opp.signalType))}>
-                    {getSignalLabel(opp.signalType)}
+                <td className="py-4 px-4 text-right">
+                  <span className="inline-flex items-center rounded-lg bg-primary/15 border border-primary/25 px-2.5 py-1 text-xs font-mono font-semibold text-primary">
+                    {opp.opportunityScore.toFixed(1)}
                   </span>
                 </td>
-                <td className="py-2.5 px-3 text-right">
-                  <Badge
-                    variant={
-                      opp.signalType === 'STRONG_LONG' || opp.signalType === 'STRONG_SHORT'
-                        ? opp.signalType === 'STRONG_LONG'
-                          ? 'long'
-                          : 'short'
-                        : 'score'
-                    }
-                  >
-                    {opp.opportunityScore.toFixed(1)}
-                  </Badge>
+                <td className="py-4 px-4 pr-5 text-right">
+                  <Sparkline values={sparkValues} width={88} height={32} filled={false} positive={trendUp} />
                 </td>
               </tr>
             );

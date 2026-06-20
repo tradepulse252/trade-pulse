@@ -1,4 +1,4 @@
-import type { Opportunity } from './api';
+import type { Opportunity, AggregatedMarket } from './api';
 
 export function applyOpportunityFilters(
   data: Opportunity[],
@@ -56,4 +56,37 @@ export function applyOpportunityFilters(
     });
 
   return filtered.slice(0, hasActiveFilters ? filtered.length : limit);
+}
+
+export function applyAggregatedFilters(
+  data: AggregatedMarket[],
+  filters: Record<string, string | number>
+): AggregatedMarket[] {
+  const symbolQuery = filters.symbols ? String(filters.symbols).trim().toUpperCase() : '';
+
+  return data.filter((item) => {
+    if (filters.signalType && item.signalType !== filters.signalType) return false;
+    if (filters.minScore !== undefined && filters.minScore !== '') {
+      if (item.opportunityScore < Number(filters.minScore)) return false;
+    }
+    if (filters.minOi !== undefined && filters.minOi !== '') {
+      if (item.totalOpenInterest < Number(filters.minOi)) return false;
+    }
+    if (filters.minVolume !== undefined && filters.minVolume !== '') {
+      if (item.totalVolumeUsdt < Number(filters.minVolume)) return false;
+    }
+    if (filters.fundingRateMin !== undefined && filters.fundingRateMin !== '') {
+      if (item.avgFundingRate < Number(filters.fundingRateMin)) return false;
+    }
+    if (symbolQuery) {
+      const terms = symbolQuery.split(',').map((t) => t.trim()).filter(Boolean);
+      const matches = terms.some(
+        (term) =>
+          item.baseAsset.includes(term.replace('USDT', '')) ||
+          item.symbol.includes(term)
+      );
+      if (!matches) return false;
+    }
+    return true;
+  });
 }
