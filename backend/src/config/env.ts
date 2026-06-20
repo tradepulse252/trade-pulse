@@ -23,8 +23,12 @@ const envSchema = z.object({
   VOLUME_SPIKE_THRESHOLD_PCT: z.coerce.number().default(10),
   FUNDING_FLIP_THRESHOLD: z.coerce.number().default(0.0001),
   RESEND_API_KEY: z.string().optional().default(''),
-  EMAIL_FROM: z.string().default('Trade Pulse <onboarding@resend.dev>'),
+  EMAIL_FROM_NAME: z.string().default('Trade Pulse'),
+  EMAIL_FROM_ADDRESS: z.string().default('tradepulse252@gmail.com'),
+  EMAIL_FROM: z.string().optional(),
   EMAIL_REPLY_TO: z.string().email().default('tradepulse252@gmail.com'),
+  GMAIL_USER: z.string().email().default('tradepulse252@gmail.com'),
+  GMAIL_APP_PASSWORD: z.string().optional().default(''),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
 });
 

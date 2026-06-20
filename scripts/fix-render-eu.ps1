@@ -57,7 +57,9 @@ $envVars = @(
   @{ key = 'REDIS_URL'; value = '' },
   @{ key = 'FRONTEND_URL'; value = $FrontendUrl },
   @{ key = 'EMAIL_REPLY_TO'; value = 'tradepulse252@gmail.com' },
-  @{ key = 'EMAIL_FROM'; value = 'Trade Pulse <onboarding@resend.dev>' }
+  @{ key = 'EMAIL_FROM_NAME'; value = 'Trade Pulse' },
+  @{ key = 'EMAIL_FROM_ADDRESS'; value = 'tradepulse252@gmail.com' },
+  @{ key = 'GMAIL_USER'; value = 'tradepulse252@gmail.com' }
 )
 
 # Set secrets from local .env files (backend/.env and root .env)
@@ -71,8 +73,12 @@ foreach ($envFile in $envFiles) {
     if ($line -match '^BINANCE_API_KEY=(.+)$') { $envVars += @{ key = 'BINANCE_API_KEY'; value = $Matches[1].Trim() } }
     if ($line -match '^BINANCE_API_SECRET=(.+)$') { $envVars += @{ key = 'BINANCE_API_SECRET'; value = $Matches[1].Trim() } }
     if ($line -match '^RESEND_API_KEY=(.+)$') { $envVars += @{ key = 'RESEND_API_KEY'; value = $Matches[1].Trim() } }
+    if ($line -match '^EMAIL_FROM_NAME=(.+)$') { $envVars += @{ key = 'EMAIL_FROM_NAME'; value = $Matches[1].Trim() } }
+    if ($line -match '^EMAIL_FROM_ADDRESS=(.+)$') { $envVars += @{ key = 'EMAIL_FROM_ADDRESS'; value = $Matches[1].Trim() } }
     if ($line -match '^EMAIL_FROM=(.+)$') { $envVars += @{ key = 'EMAIL_FROM'; value = $Matches[1].Trim() } }
     if ($line -match '^EMAIL_REPLY_TO=(.+)$') { $envVars += @{ key = 'EMAIL_REPLY_TO'; value = $Matches[1].Trim() } }
+    if ($line -match '^GMAIL_USER=(.+)$') { $envVars += @{ key = 'GMAIL_USER'; value = $Matches[1].Trim() } }
+    if ($line -match '^GMAIL_APP_PASSWORD=(.+)$') { $envVars += @{ key = 'GMAIL_APP_PASSWORD'; value = $Matches[1].Trim() } }
     if ($line -match '^FRONTEND_URL=(.+)$') { $envVars += @{ key = 'FRONTEND_URL'; value = $Matches[1].Trim() } }
   }
 }
