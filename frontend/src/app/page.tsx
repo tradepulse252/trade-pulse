@@ -129,7 +129,7 @@ export default function DashboardPage() {
                 </>
               )}
 
-              {error ? (
+              {error && filteredMarkets.length === 0 && !loading ? (
                 <div className="p-10 text-center space-y-3">
                   <p className="text-short font-medium">Cannot reach backend API</p>
                   <p className="text-sm text-muted-foreground">
