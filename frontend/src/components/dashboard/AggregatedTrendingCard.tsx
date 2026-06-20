@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
 import { CoinLogo } from '@/components/ui/CoinLogo';
-import { InflowOutflowStrip } from '@/components/dashboard/InflowOutflowStrip';
+import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
 import { formatPct, formatPrice } from '@/lib/utils';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { cn } from '@/lib/utils';
@@ -35,9 +35,9 @@ export function AggregatedTrendingCard({ market }: { market: AggregatedMarket })
 
         <div>
           <p className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1.5">
-            Capital flow · 5m → 24h
+            OI & Volume · 5m → 24h ($ and %)
           </p>
-          <InflowOutflowStrip market={market} compact />
+          <OiVolumeTfStrip market={market} mode="both" compact />
         </div>
       </article>
     </Link>

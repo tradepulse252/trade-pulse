@@ -10,7 +10,9 @@ import {
   formatPrice,
   getSignalLabel,
 } from '@/lib/utils';
+import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
 import { getGrowthForTimeframe, getTimeframeLabel, type TimeframeKey } from '@/lib/sorting';
+import { getTfMetric } from '@/lib/metrics';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { Loader2 } from 'lucide-react';
 
@@ -37,15 +39,6 @@ function SymbolAvatar({ symbol }: { symbol: string }) {
   );
 }
 
-function PctCell({ value }: { value: number }) {
-  const positive = value >= 0;
-  return (
-    <span className={cn('tabular-nums font-medium', positive ? 'text-long' : 'text-short')}>
-      {formatPct(value)}
-    </span>
-  );
-}
-
 export function RankingTable({
   opportunities,
   loading,
@@ -53,8 +46,6 @@ export function RankingTable({
   isFiltered = false,
   totalCount = 0,
 }: RankingTableProps) {
-  const tfLabel = getTimeframeLabel(timeframe);
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-80 text-muted-foreground gap-3">
@@ -84,9 +75,8 @@ export function RankingTable({
             <th className="text-left py-3.5 px-4 font-medium w-12">#</th>
             <th className="text-left py-3.5 px-4 font-medium min-w-[140px]">Name</th>
             <th className="text-right py-3.5 px-4 font-medium">Price</th>
-            <th className="text-right py-3.5 px-4 font-medium">OI Δ {tfLabel}</th>
-            <th className="text-right py-3.5 px-4 font-medium">Vol 24h</th>
-            <th className="text-right py-3.5 px-4 font-medium">Vol Δ {tfLabel}</th>
+            <th className="text-right py-3.5 px-4 font-medium min-w-[110px]">Open Interest</th>
+            <th className="text-right py-3.5 px-4 font-medium min-w-[110px]">Volume</th>
             <th className="text-right py-3.5 px-4 font-medium">Funding</th>
             <th className="text-right py-3.5 px-4 font-medium">Score</th>
             <th className="text-right py-3.5 px-4 font-medium pr-5 min-w-[100px]">Trend</th>
@@ -95,6 +85,14 @@ export function RankingTable({
         <tbody>
           {opportunities.map((opp, idx) => {
             const growth = getGrowthForTimeframe(opp, timeframe);
+            const tf = getTfMetric(
+              opp.growthMatrix,
+              timeframe,
+              opp.openInterest,
+              opp.volumeUsdt,
+              opp.oiChangePct,
+              opp.volumeChangePct
+            );
             const rank = opp.rank ?? idx + 1;
             const base = opp.symbol.replace('USDT', '');
             const sparkValues = getOpportunitySparkline(opp.growthMatrix, opp.priceMomentum);
@@ -119,13 +117,18 @@ export function RankingTable({
                 </td>
                 <td className="py-4 px-4 text-right data-cell text-foreground">{formatPrice(opp.price)}</td>
                 <td className="py-4 px-4 text-right">
-                  <PctCell value={growth.oiChangePct} />
-                </td>
-                <td className="py-4 px-4 text-right data-cell text-muted-foreground">
-                  ${formatNumber(opp.volumeUsdt)}
+                  <MoneyPctCell
+                    totalUsd={opp.openInterest}
+                    changeUsd={tf.oiChangeUsd}
+                    changePct={growth.oiChangePct}
+                  />
                 </td>
                 <td className="py-4 px-4 text-right">
-                  <PctCell value={growth.volumeChangePct} />
+                  <MoneyPctCell
+                    totalUsd={opp.volumeUsdt}
+                    changeUsd={tf.volumeChangeUsd}
+                    changePct={growth.volumeChangePct}
+                  />
                 </td>
                 <td
                   className={cn(

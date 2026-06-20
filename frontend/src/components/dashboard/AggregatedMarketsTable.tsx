@@ -8,6 +8,9 @@ import { Loader2 } from 'lucide-react';
 
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { LivePrice } from '@/components/dashboard/LivePrice';
+import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
+import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
+import { getTfMetric } from '@/lib/metrics';
 
 interface AggregatedMarketsTableProps {
   markets: AggregatedMarket[];
@@ -59,8 +62,8 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
             <th className="text-right py-3.5 px-4 font-medium">Market Cap</th>
             <th className="text-right py-3.5 px-4 font-medium">Price</th>
             <th className="text-right py-3.5 px-4 font-medium">24h</th>
-            <th className="text-right py-3.5 px-4 font-medium">Agg. Volume</th>
-            <th className="text-right py-3.5 px-4 font-medium">Agg. OI</th>
+            <th className="text-right py-3.5 px-4 font-medium min-w-[120px]">Open Interest</th>
+            <th className="text-right py-3.5 px-4 font-medium min-w-[120px]">Volume</th>
             <th className="text-right py-3.5 px-4 font-medium">Avg Funding</th>
             <th className="text-right py-3.5 px-4 font-medium">Exchanges</th>
             <th className="text-right py-3.5 px-4 font-medium pr-5">Score</th>
@@ -69,8 +72,9 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
         <tbody>
           {filtered.map((m, idx) => {
             const sparkValues = getOpportunitySparkline(m.growthMatrix, m.priceChange24h);
+            const h1 = getTfMetric(m.growthMatrix, '1h', m.totalOpenInterest, m.totalVolumeUsdt, m.oiChangePct, m.volumeChangePct);
             return (
-              <tr key={m.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+              <tr key={m.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors align-top">
                 <td className="py-4 px-4 text-muted-foreground tabular-nums">{m.rank ?? idx + 1}</td>
                 <td className="py-4 px-4">
                   <Link href={`/coin/${m.symbol}`} className="flex items-center gap-3">
@@ -88,8 +92,26 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
                   <LivePrice price={m.price} />
                 </td>
                 <td className="py-4 px-4 text-right"><PctCell value={m.priceChange24h} /></td>
-                <td className="py-4 px-4 text-right data-cell text-muted-foreground">${formatNumber(m.totalVolumeUsdt)}</td>
-                <td className="py-4 px-4 text-right data-cell text-muted-foreground">${formatNumber(m.totalOpenInterest)}</td>
+                <td className="py-4 px-4 text-right min-w-[140px]">
+                  <MoneyPctCell
+                    totalUsd={m.totalOpenInterest}
+                    changeUsd={h1.oiChangeUsd}
+                    changePct={h1.oiChangePct}
+                  />
+                  <div className="mt-2">
+                    <OiVolumeTfStrip market={m} mode="oi" compact />
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-right min-w-[140px]">
+                  <MoneyPctCell
+                    totalUsd={m.totalVolumeUsdt}
+                    changeUsd={h1.volumeChangeUsd}
+                    changePct={h1.volumeChangePct}
+                  />
+                  <div className="mt-2">
+                    <OiVolumeTfStrip market={m} mode="volume" compact />
+                  </div>
+                </td>
                 <td className="py-4 px-4 text-right data-cell">{formatFunding(m.avgFundingRate)}</td>
                 <td className="py-4 px-4 text-right">
                   <span className="text-xs text-muted-foreground">{m.venueCount} ({m.exchanges.join(', ')})</span>

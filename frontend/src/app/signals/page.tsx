@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { getSignals } from '@/lib/api';
 import type { AggregatedMarket } from '@/lib/api';
-import { cn, formatFunding, formatNumber, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
+import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
+import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
+import { getTfMetric } from '@/lib/metrics';
+import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
 
@@ -144,15 +147,24 @@ export default function SignalsPage() {
                     <th className="text-left py-3 px-4">Signal</th>
                     <th className="text-left py-3 px-4">Conditions</th>
                     <th className="text-right py-3 px-4">Score</th>
-                    <th className="text-right py-3 px-4">OI Δ</th>
-                    <th className="text-right py-3 px-4">Vol Δ</th>
+                    <th className="text-right py-3 px-4 min-w-[130px]">Open Interest</th>
+                    <th className="text-right py-3 px-4 min-w-[130px]">Volume</th>
                     <th className="text-right py-3 px-4">Funding</th>
                     <th className="text-right py-3 px-4 pr-4">24h</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s, i) => (
-                    <tr key={s.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                  {filtered.map((s, i) => {
+                    const h1 = getTfMetric(
+                      s.growthMatrix,
+                      '1h',
+                      s.totalOpenInterest,
+                      s.totalVolumeUsdt,
+                      s.oiChangePct,
+                      s.volumeChangePct
+                    );
+                    return (
+                    <tr key={s.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] align-top">
                       <td className="py-3 px-4 text-muted-foreground">{s.rank ?? i + 1}</td>
                       <td className="py-3 px-4">
                         <Link
@@ -174,21 +186,25 @@ export default function SignalsPage() {
                       <td className="py-3 px-4 text-right font-mono text-primary font-semibold">
                         {s.opportunityScore.toFixed(1)}
                       </td>
-                      <td
-                        className={cn(
-                          'py-3 px-4 text-right tabular-nums text-xs',
-                          s.oiChangePct >= 0 ? 'text-long' : 'text-short'
-                        )}
-                      >
-                        {formatPct(s.oiChangePct)}
+                      <td className="py-3 px-4 text-right min-w-[140px]">
+                        <MoneyPctCell
+                          totalUsd={s.totalOpenInterest}
+                          changeUsd={h1.oiChangeUsd}
+                          changePct={h1.oiChangePct}
+                        />
+                        <div className="mt-1.5">
+                          <OiVolumeTfStrip market={s} mode="oi" compact />
+                        </div>
                       </td>
-                      <td
-                        className={cn(
-                          'py-3 px-4 text-right tabular-nums text-xs',
-                          s.volumeChangePct >= 0 ? 'text-long' : 'text-short'
-                        )}
-                      >
-                        {formatPct(s.volumeChangePct)}
+                      <td className="py-3 px-4 text-right min-w-[140px]">
+                        <MoneyPctCell
+                          totalUsd={s.totalVolumeUsdt}
+                          changeUsd={h1.volumeChangeUsd}
+                          changePct={h1.volumeChangePct}
+                        />
+                        <div className="mt-1.5">
+                          <OiVolumeTfStrip market={s} mode="volume" compact />
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>
                       <td
@@ -200,7 +216,8 @@ export default function SignalsPage() {
                         {formatPct(s.priceChange24h)}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

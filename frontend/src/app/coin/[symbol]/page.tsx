@@ -8,15 +8,8 @@ import { MetricChart } from '@/components/charts/MetricChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getCoinDetail, getChartData, type CoinDetail, type ChartData } from '@/lib/api';
-import {
-  cn,
-  formatFunding,
-  formatNumber,
-  formatPct,
-  formatPrice,
-  getSignalClass,
-  getSignalLabel,
-} from '@/lib/utils';
+import { changeUsdFromPct } from '@/lib/metrics';
+import { cn, formatFunding, formatNumber, formatPct, formatPrice, getSignalClass, getSignalLabel } from '@/lib/utils';
 import { ArrowLeft, TrendingUp, BarChart2, DollarSign, Activity, Star } from 'lucide-react';
 import { useAuth, authHeaders } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -143,7 +136,8 @@ export default function CoinDetailPage() {
                 </div>
                 <p className="text-lg font-mono font-semibold">${formatNumber(signal.openInterest)}</p>
                 <p className={cn('text-xs font-mono', signal.oiChangePct >= 0 ? 'text-long' : 'text-short')}>
-                  {formatPct(signal.oiChangePct)}
+                  {signal.oiChangePct >= 0 ? '+' : '-'}${formatNumber(Math.abs(changeUsdFromPct(signal.openInterest, signal.oiChangePct)))}{' '}
+                  ({formatPct(signal.oiChangePct)})
                 </p>
               </CardContent>
             </Card>
@@ -154,7 +148,8 @@ export default function CoinDetailPage() {
                 </div>
                 <p className="text-lg font-mono font-semibold">${formatNumber(signal.volumeUsdt)}</p>
                 <p className={cn('text-xs font-mono', signal.volumeChangePct >= 0 ? 'text-long' : 'text-short')}>
-                  {formatPct(signal.volumeChangePct)}
+                  {signal.volumeChangePct >= 0 ? '+' : '-'}${formatNumber(Math.abs(changeUsdFromPct(signal.volumeUsdt, signal.volumeChangePct)))}{' '}
+                  ({formatPct(signal.volumeChangePct)})
                 </p>
               </CardContent>
             </Card>
@@ -193,25 +188,29 @@ export default function CoinDetailPage() {
                   <tr className="text-xs text-muted-foreground uppercase">
                     <th className="text-left py-2 px-3">Timeframe</th>
                     <th className="text-right py-2 px-3">Price</th>
-                    <th className="text-right py-2 px-3">Open Interest</th>
-                    <th className="text-right py-2 px-3">Volume</th>
+                    <th className="text-right py-2 px-3">Open Interest ($ / %)</th>
+                    <th className="text-right py-2 px-3">Volume ($ / %)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {TIMEFRAMES.map((tf) => {
                     const m = detail.growthMatrix[tf];
-                    if (!m) return null;
+                    if (!m || !signal) return null;
+                    const oiUsd = changeUsdFromPct(signal.openInterest, m.oiChangePct);
+                    const volUsd = changeUsdFromPct(signal.volumeUsdt, m.volumeChangePct);
                     return (
                       <tr key={tf} className="border-t border-border/50">
                         <td className="py-2 px-3 font-mono text-muted-foreground">{tf}</td>
                         <td className={cn('py-2 px-3 text-right font-mono', m.priceChangePct >= 0 ? 'text-long' : 'text-short')}>
                           {formatPct(m.priceChangePct)}
                         </td>
-                        <td className={cn('py-2 px-3 text-right font-mono', m.oiChangePct >= 0 ? 'text-long' : 'text-short')}>
-                          {formatPct(m.oiChangePct)}
+                        <td className={cn('py-2 px-3 text-right font-mono text-xs', m.oiChangePct >= 0 ? 'text-long' : 'text-short')}>
+                          <div>${formatNumber(signal.openInterest)}</div>
+                          <div>{oiUsd >= 0 ? '+' : '-'}${formatNumber(Math.abs(oiUsd))} ({formatPct(m.oiChangePct)})</div>
                         </td>
-                        <td className={cn('py-2 px-3 text-right font-mono', m.volumeChangePct >= 0 ? 'text-long' : 'text-short')}>
-                          {formatPct(m.volumeChangePct)}
+                        <td className={cn('py-2 px-3 text-right font-mono text-xs', m.volumeChangePct >= 0 ? 'text-long' : 'text-short')}>
+                          <div>${formatNumber(signal.volumeUsdt)}</div>
+                          <div>{volUsd >= 0 ? '+' : '-'}${formatNumber(Math.abs(volUsd))} ({formatPct(m.volumeChangePct)})</div>
                         </td>
                       </tr>
                     );
