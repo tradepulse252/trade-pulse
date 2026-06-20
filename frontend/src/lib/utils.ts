@@ -29,10 +29,11 @@ export function formatFunding(rate: number): string {
 
 export function getSignalLabel(type: string): string {
   const labels: Record<string, string> = {
-    STRONG_LONG: '🔥 Strong Long',
-    WEAK_LONG: '🟢 Weak Long',
-    STRONG_SHORT: '🔴 Strong Short',
-    NEUTRAL: '— Neutral',
+    STRONG_LONG: 'Strong Long',
+    WEAK_LONG: 'Weak Long',
+    STRONG_SHORT: 'Strong Short',
+    WEAK_SHORT: 'Weak Short',
+    NEUTRAL: 'Neutral',
   };
   return labels[type] ?? type;
 }
@@ -42,7 +43,19 @@ export function getSignalClass(type: string): string {
     STRONG_LONG: 'signal-strong-long',
     WEAK_LONG: 'signal-weak-long',
     STRONG_SHORT: 'signal-strong-short',
+    WEAK_SHORT: 'signal-weak-short',
     NEUTRAL: 'signal-neutral',
   };
   return classes[type] ?? 'signal-neutral';
+}
+
+export function getSignalEmoji(type: string): string {
+  const emojis: Record<string, string> = {
+    STRONG_LONG: '🔥',
+    WEAK_LONG: '🟢',
+    STRONG_SHORT: '🔴',
+    WEAK_SHORT: '🟠',
+    NEUTRAL: '—',
+  };
+  return emojis[type] ?? '';
 }

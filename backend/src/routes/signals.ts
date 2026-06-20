@@ -19,7 +19,7 @@ router.get('/', (_req: Request, res: Response) => {
     lastRefresh: aggregationService.getLastRefresh(),
     source: 'aggregated-formula',
     formula:
-      'Aggregated OI + Volume + Funding from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX). Signal when OI↑ + Vol↑ with funding/momentum alignment.',
+      'High OI + High Volume + Funding: negative=Strong Long, slightly negative=Weak Long, positive=Strong Short, slightly positive=Weak Short. Shows coins with 1–3 conditions met.',
   });
 });
 

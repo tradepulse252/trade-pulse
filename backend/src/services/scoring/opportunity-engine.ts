@@ -2,7 +2,6 @@ import { SignalType } from '@prisma/client';
 import { GrowthMatrix } from '../../types';
 import { getPrimaryLookback } from './growth-calculator';
 
-// Scoring weights per spec
 const WEIGHTS = {
   oiGrowth: 0.4,
   volumeGrowth: 0.3,
@@ -10,16 +9,33 @@ const WEIGHTS = {
   priceMomentum: 0.1,
 } as const;
 
-// Signal classification thresholds
+/** High OI / volume = significant growth vs prior snapshot */
 const THRESHOLDS = {
-  significantOiGrowth: 3,      // % OI increase
-  significantVolumeGrowth: 5,  // % volume increase
-  negativeFunding: -0.0001,
-  slightlyPositiveFunding: 0.0001,
-  stronglyPositiveFunding: 0.0003,
-  priceMomentumUp: 0.5,
-  priceMomentumDown: -0.5,
+  highOiGrowth: 3,
+  highVolumeGrowth: 5,
+  moderateOiGrowth: 1,
+  moderateVolumeGrowth: 2,
+  strongNegativeFunding: -0.0001,
+  slightNegativeFunding: 0,
+  slightPositiveFunding: 0.0001,
+  strongPositiveFunding: 0.0003,
+  minFundingMagnitude: 0.00005,
 } as const;
+
+export type FundingBand =
+  | 'strong_negative'
+  | 'slight_negative'
+  | 'flat'
+  | 'slight_positive'
+  | 'strong_positive';
+
+export interface SignalConditions {
+  highOi: boolean;
+  highVolume: boolean;
+  fundingMatch: boolean;
+  matchCount: number;
+  fundingBand: FundingBand;
+}
 
 function normalizeScore(value: number, min: number, max: number): number {
   if (max === min) return 50;
@@ -28,7 +44,6 @@ function normalizeScore(value: number, min: number, max: number): number {
 }
 
 function scoreOiGrowth(oiChangePct: number): number {
-  // OI growth is the primary signal — scale 0-20% to 0-100
   return normalizeScore(oiChangePct, 0, 20);
 }
 
@@ -38,13 +53,11 @@ function scoreVolumeGrowth(volumeChangePct: number): number {
 
 function scoreFundingRate(fundingRate: number, signalBias: 'long' | 'short' | 'neutral'): number {
   if (signalBias === 'long') {
-    // Negative funding is bullish for longs
     return fundingRate < 0
       ? normalizeScore(Math.abs(fundingRate), 0, 0.001) * 1.2
       : normalizeScore(-fundingRate, 0, 0.001) * 0.5;
   }
   if (signalBias === 'short') {
-    // Positive funding is bearish (overcrowded longs)
     return fundingRate > 0
       ? normalizeScore(fundingRate, 0, 0.001) * 1.2
       : normalizeScore(-fundingRate, 0, 0.001) * 0.5;
@@ -62,54 +75,115 @@ function scorePriceMomentum(priceChangePct: number, direction: 'up' | 'down' | '
   return normalizeScore(Math.abs(priceChangePct), 0, 10);
 }
 
+export function getFundingBand(fundingRate: number): FundingBand {
+  if (fundingRate <= THRESHOLDS.strongNegativeFunding) return 'strong_negative';
+  if (fundingRate < -THRESHOLDS.minFundingMagnitude) return 'slight_negative';
+  if (fundingRate <= THRESHOLDS.minFundingMagnitude) return 'flat';
+  if (fundingRate < THRESHOLDS.strongPositiveFunding) return 'slight_positive';
+  return 'strong_positive';
+}
+
+function isHighOi(oiChangePct: number): boolean {
+  return oiChangePct >= THRESHOLDS.highOiGrowth;
+}
+
+function isHighVolume(volumeChangePct: number): boolean {
+  return volumeChangePct >= THRESHOLDS.highVolumeGrowth;
+}
+
+function isModerateOi(oiChangePct: number): boolean {
+  return oiChangePct > 0 && oiChangePct >= THRESHOLDS.moderateOiGrowth;
+}
+
+function isModerateVolume(volumeChangePct: number): boolean {
+  return volumeChangePct > 0 && volumeChangePct >= THRESHOLDS.moderateVolumeGrowth;
+}
+
+function isFundingMatch(fundingRate: number): boolean {
+  return Math.abs(fundingRate) >= THRESHOLDS.minFundingMagnitude;
+}
+
+/** OI high + Volume high + Funding → Strong/Weak Long or Short (1–3 conditions). */
+export function evaluateSignal(
+  oiChangePct: number,
+  volumeChangePct: number,
+  fundingRate: number
+): { signalType: SignalType; conditions: SignalConditions } {
+  const fundingBand = getFundingBand(fundingRate);
+  const highOi = isHighOi(oiChangePct);
+  const highVolume = isHighVolume(volumeChangePct);
+  const fundingMatch = isFundingMatch(fundingRate);
+
+  const strictCount = (highOi ? 1 : 0) + (highVolume ? 1 : 0) + (fundingMatch ? 1 : 0);
+  const moderateOi = isModerateOi(oiChangePct);
+  const moderateVolume = isModerateVolume(volumeChangePct);
+  const partialCount =
+    (highOi || moderateOi ? 1 : 0) + (highVolume || moderateVolume ? 1 : 0) + (fundingMatch ? 1 : 0);
+
+  const matchCount = strictCount > 0 ? strictCount : partialCount;
+
+  const conditions: SignalConditions = {
+    highOi: highOi || moderateOi,
+    highVolume: highVolume || moderateVolume,
+    fundingMatch,
+    matchCount,
+    fundingBand,
+  };
+
+  if (matchCount === 0) {
+    return { signalType: SignalType.NEUTRAL, conditions };
+  }
+
+  const longBias =
+    fundingBand === 'strong_negative' ||
+    fundingBand === 'slight_negative' ||
+    (fundingBand === 'flat' && fundingRate <= 0);
+  const shortBias =
+    fundingBand === 'strong_positive' ||
+    fundingBand === 'slight_positive' ||
+    (fundingBand === 'flat' && fundingRate > 0);
+
+  // All three strict: Strong / Weak by funding magnitude
+  if (highOi && highVolume && fundingMatch) {
+    if (fundingBand === 'strong_negative') {
+      return { signalType: SignalType.STRONG_LONG, conditions: { ...conditions, matchCount: 3 } };
+    }
+    if (fundingBand === 'slight_negative') {
+      return { signalType: SignalType.WEAK_LONG, conditions: { ...conditions, matchCount: 3 } };
+    }
+    if (fundingBand === 'strong_positive') {
+      return { signalType: SignalType.STRONG_SHORT, conditions: { ...conditions, matchCount: 3 } };
+    }
+    if (fundingBand === 'slight_positive') {
+      return { signalType: SignalType.WEAK_SHORT, conditions: { ...conditions, matchCount: 3 } };
+    }
+  }
+
+  // One or two conditions (or 3 with moderate OI/vol): assign weak sign
+  if (longBias || (!shortBias && (conditions.highOi || conditions.highVolume))) {
+    return { signalType: SignalType.WEAK_LONG, conditions };
+  }
+  if (shortBias) {
+    return { signalType: SignalType.WEAK_SHORT, conditions };
+  }
+
+  return { signalType: SignalType.NEUTRAL, conditions };
+}
+
 export function classifySignal(
   oiChangePct: number,
   volumeChangePct: number,
   fundingRate: number,
-  priceMomentum: number
+  _priceMomentum?: number
 ): SignalType {
-  const significantOi = oiChangePct >= THRESHOLDS.significantOiGrowth;
-  const significantVolume = volumeChangePct >= THRESHOLDS.significantVolumeGrowth;
-  const oiIncreasing = oiChangePct > 0;
-  const volumeIncreasing = volumeChangePct > 0;
-
-  // Strong Long: OI↑ + Volume↑ + Negative funding + Price stable/up
-  if (
-    significantOi &&
-    significantVolume &&
-    fundingRate <= THRESHOLDS.negativeFunding &&
-    priceMomentum >= THRESHOLDS.priceMomentumUp
-  ) {
-    return SignalType.STRONG_LONG;
-  }
-
-  // Strong Short: OI↑ + Volume↑ + Strongly positive funding + Price weakening
-  if (
-    significantOi &&
-    significantVolume &&
-    fundingRate >= THRESHOLDS.stronglyPositiveFunding &&
-    priceMomentum <= THRESHOLDS.priceMomentumDown
-  ) {
-    return SignalType.STRONG_SHORT;
-  }
-
-  // Weak Long: OI↑ + Volume↑ + Slightly positive funding
-  if (
-    oiIncreasing &&
-    volumeIncreasing &&
-    fundingRate >= THRESHOLDS.slightlyPositiveFunding &&
-    fundingRate < THRESHOLDS.stronglyPositiveFunding
-  ) {
-    return SignalType.WEAK_LONG;
-  }
-
-  return SignalType.NEUTRAL;
+  return evaluateSignal(oiChangePct, volumeChangePct, fundingRate).signalType;
 }
 
 export function calculateOpportunityScore(
   growthMatrix: GrowthMatrix,
   fundingRate: number,
-  signalType: SignalType
+  signalType: SignalType,
+  matchCount = 3
 ): { score: number; priceMomentum: number; oiChangePct: number; volumeChangePct: number } {
   const primary = getPrimaryLookback(growthMatrix, '1h');
   const { oiChangePct, volumeChangePct, priceChangePct } = primary;
@@ -125,6 +199,7 @@ export function calculateOpportunityScore(
       momentumDirection = 'up';
       break;
     case SignalType.STRONG_SHORT:
+    case SignalType.WEAK_SHORT:
       signalBias = 'short';
       momentumDirection = 'down';
       break;
@@ -141,15 +216,16 @@ export function calculateOpportunityScore(
     fundingScore * WEIGHTS.fundingRate +
     momentumScore * WEIGHTS.priceMomentum;
 
-  // Boost actionable signals
   const signalMultiplier =
     signalType === SignalType.STRONG_LONG || signalType === SignalType.STRONG_SHORT
       ? 1.15
-      : signalType === SignalType.WEAK_LONG
+      : signalType === SignalType.WEAK_LONG || signalType === SignalType.WEAK_SHORT
         ? 1.05
         : 0.8;
 
-  const score = Math.min(100, Math.round(rawScore * signalMultiplier * 100) / 100);
+  const matchMultiplier = matchCount === 3 ? 1 : matchCount === 2 ? 0.85 : 0.7;
+
+  const score = Math.min(100, Math.round(rawScore * signalMultiplier * matchMultiplier * 100) / 100);
 
   return { score, priceMomentum, oiChangePct, volumeChangePct };
 }

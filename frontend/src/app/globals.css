@@ -81,5 +81,6 @@
   .signal-strong-long { @apply text-long; }
   .signal-weak-long { @apply text-emerald-400; }
   .signal-strong-short { @apply text-short; }
+  .signal-weak-short { @apply text-orange-400; }
   .signal-neutral { @apply text-neutral; }
 }

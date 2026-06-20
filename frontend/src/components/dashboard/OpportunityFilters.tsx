@@ -65,6 +65,7 @@ export function OpportunityFilters({ filters, onChange, alwaysOpen }: FiltersPro
                 <option value="STRONG_LONG">Strong Long</option>
                 <option value="WEAK_LONG">Weak Long</option>
                 <option value="STRONG_SHORT">Strong Short</option>
+                <option value="WEAK_SHORT">Weak Short</option>
                 <option value="NEUTRAL">Neutral</option>
               </Select>
             </div>

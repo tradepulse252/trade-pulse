@@ -35,6 +35,13 @@ export interface AggregatedMarket {
   venueCount: number;
   exchanges: string[];
   growthMatrix?: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
+  signalConditions?: {
+    highOi: boolean;
+    highVolume: boolean;
+    fundingMatch: boolean;
+    matchCount: number;
+    fundingBand: string;
+  };
 }
 
 export interface GainerLoser {

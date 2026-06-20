@@ -16,6 +16,7 @@ enum SignalType {
   STRONG_LONG
   WEAK_LONG
   STRONG_SHORT
+  WEAK_SHORT
   NEUTRAL
 }
 

@@ -1,6 +1,6 @@
 import { SignalType } from '@prisma/client';
 import { env, type TimeframeKey } from '../../config/env';
-import { classifySignal, calculateOpportunityScore, rankOpportunities } from '../scoring/opportunity-engine';
+import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
 import { fetchBybitVenues } from './bybit-adapter';
@@ -166,13 +166,17 @@ class AggregationService {
         volumeChangePct
       );
 
-      const signalType = classifySignal(
+      const { signalType, conditions } = evaluateSignal(
         growthMatrix['1h']?.oiChangePct ?? oiChangePct,
         growthMatrix['1h']?.volumeChangePct ?? volumeChangePct,
-        avgFundingRate,
-        growthMatrix['1h']?.priceChangePct ?? priceChange24h / 24
+        avgFundingRate
       );
-      const { score, priceMomentum } = calculateOpportunityScore(growthMatrix, avgFundingRate, signalType);
+      const { score, priceMomentum } = calculateOpportunityScore(
+        growthMatrix,
+        avgFundingRate,
+        signalType,
+        conditions.matchCount
+      );
 
       const meta = lookupMarketMeta(baseAsset, marketMeta);
 
@@ -191,6 +195,7 @@ class AggregationService {
         priceMomentum,
         signalType,
         opportunityScore: score,
+        signalConditions: conditions,
         venueCount: list.length,
         exchanges: [...new Set(list.map((v) => v.exchange))],
         venues: list,
