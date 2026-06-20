@@ -78,7 +78,7 @@ foreach ($envFile in $envFiles) {
     if ($line -match '^EMAIL_FROM=(.+)$') { $envVars += @{ key = 'EMAIL_FROM'; value = $Matches[1].Trim() } }
     if ($line -match '^EMAIL_REPLY_TO=(.+)$') { $envVars += @{ key = 'EMAIL_REPLY_TO'; value = $Matches[1].Trim() } }
     if ($line -match '^GMAIL_USER=(.+)$') { $envVars += @{ key = 'GMAIL_USER'; value = $Matches[1].Trim() } }
-    # GMAIL_APP_PASSWORD intentionally omitted for Render — SMTP blocked on free tier
+    # GMAIL_APP_PASSWORD intentionally omitted for Render on free tier
     if ($line -match '^RESEND_FROM_ADDRESS=(.+)$') {
       $val = $Matches[1].Trim()
       if ($val) { $productionFromAddress = $val }
@@ -94,10 +94,10 @@ if ($productionFromAddress -ne 'onboarding@resend.dev') {
   $testScript = Join-Path $PSScriptRoot 'test-resend-send.ps1'
   & $testScript -To 'tradepulse252@gmail.com' 2>$null | Out-Null
   if ($LASTEXITCODE -ne 0) {
-    Write-Host "    Domain not verified yet — using onboarding@resend.dev (owner email only)"
+    Write-Host '    Domain not verified yet - using onboarding@resend.dev (owner email only)'
     $productionFromAddress = 'onboarding@resend.dev'
   } else {
-    Write-Host '    Domain verified — using production sender'
+    Write-Host '    Domain verified - using production sender'
   }
 }
 
@@ -107,11 +107,11 @@ try {
   $renderPlan = $svc.serviceDetails.plan
   Write-Host "==> Render plan: $renderPlan"
 } catch {
-  Write-Host '==> Could not read Render plan — assuming free'
+  Write-Host '==> Could not read Render plan - assuming free'
 }
 
 if ($renderPlan -ne 'free') {
-  Write-Host '==> Paid Render — enabling Gmail SMTP'
+  Write-Host '==> Paid Render - enabling Gmail SMTP'
   $envVars += @{ key = 'EMAIL_USE_SMTP'; value = 'true' }
   $envVars += @{ key = 'EMAIL_FROM_ADDRESS'; value = 'tradepulse252@gmail.com' }
   foreach ($envFile in $envFiles) {
@@ -123,7 +123,7 @@ if ($renderPlan -ne 'free') {
     }
   }
 } else {
-  Write-Host '==> Free Render — Resend only (SMTP blocked)'
+  Write-Host '==> Free Render - Resend only (SMTP blocked)'
   try {
     Invoke-RestMethod -Method Delete `
       -Uri "https://api.render.com/v1/services/$ServiceId/env-vars/GMAIL_APP_PASSWORD" `
