@@ -8,7 +8,7 @@ const sortSchema = z.enum(['marketCap', 'volume', 'openInterest', 'funding', 'sc
 
 router.get('/', async (_req: Request, res: Response) => {
   const sort = sortSchema.safeParse(_req.query.sort).data ?? 'marketCap';
-  const limit = Math.min(parseInt(String(_req.query.limit ?? '200'), 10) || 200, 500);
+  const limit = Math.min(parseInt(String(_req.query.limit ?? '500'), 10) || 500, 1000);
 
   let data = aggregationService.getMarkets();
 

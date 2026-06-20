@@ -4,7 +4,7 @@ import { aggregationService } from '../services/exchanges/aggregation-service';
 const router = Router();
 
 router.get('/', (_req: Request, res: Response) => {
-  const limit = Math.min(parseInt(String(_req.query.limit ?? '200'), 10) || 200, 500);
+  const limit = Math.min(parseInt(String(_req.query.limit ?? '500'), 10) || 500, 1000);
   const signalType = _req.query.signalType as string | undefined;
 
   let data = aggregationService.getSignals();

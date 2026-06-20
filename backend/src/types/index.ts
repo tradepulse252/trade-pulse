@@ -114,6 +114,18 @@ export interface WsSymbolUpdate {
   timestamp: number;
 }
 
+export interface WsMarketsUpdate {
+  type: 'markets_update';
+  data: unknown[];
+  timestamp: number;
+}
+
+export interface WsPriceTickUpdate {
+  type: 'price_tick';
+  data: Array<{ baseAsset: string; symbol: string; price: number; priceChange24h: number }>;
+  timestamp: number;
+}
+
 export interface WsAlertNotification {
   type: 'alert';
   data: {
@@ -125,7 +137,7 @@ export interface WsAlertNotification {
   timestamp: number;
 }
 
-export type WsMessage = WsOpportunityUpdate | WsSymbolUpdate | WsAlertNotification;
+export type WsMessage = WsOpportunityUpdate | WsSymbolUpdate | WsAlertNotification | WsMarketsUpdate | WsPriceTickUpdate;
 
 export interface HealthStatus {
   restApi: 'healthy' | 'degraded' | 'down';

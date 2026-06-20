@@ -11,7 +11,8 @@ import {
   rankOpportunities,
 } from '../scoring/opportunity-engine';
 import { alertEngine } from '../alert/alert-engine';
-import { broadcastOpportunities } from '../websocket/ws-broadcast';
+import { broadcastOpportunities, queuePriceTick } from '../websocket/ws-broadcast';
+import { aggregationService } from '../exchanges/aggregation-service';
 import { logError } from '../../utils/logger';
 import { memoryStore, seedFromTicker } from './in-memory-store';
 import type { MarketSnapshot, OpportunityResult } from '../../types';
@@ -414,6 +415,15 @@ class IngestionService {
     this.marketData.set(ticker.symbol, snapshot);
     memoryStore.push(ticker.symbol, 'price', ticker.price, new Date(ticker.eventTime));
     memoryStore.push(ticker.symbol, 'volume', ticker.quoteVolume, new Date(ticker.eventTime));
+
+    const baseAsset = ticker.symbol.replace(/USDT$/, '');
+    aggregationService.patchLivePrice(baseAsset, ticker.price, ticker.priceChangePercent);
+    queuePriceTick({
+      baseAsset,
+      symbol: ticker.symbol,
+      price: ticker.price,
+      priceChange24h: ticker.priceChangePercent,
+    });
   }
 
   private handleMarkPriceUpdate(mark: {
@@ -447,6 +457,15 @@ class IngestionService {
       existing.openInterestValue = existing.openInterest * mark.markPrice;
     }
     this.marketData.set(mark.symbol, existing);
+
+    const baseAsset = mark.symbol.replace(/USDT$/, '');
+    aggregationService.patchLivePrice(baseAsset, mark.markPrice);
+    queuePriceTick({
+      baseAsset,
+      symbol: mark.symbol,
+      price: mark.markPrice,
+      priceChange24h: existing.priceChange24h,
+    });
   }
 
   private async persistSnapshot(snapshot: MarketSnapshot): Promise<void> {

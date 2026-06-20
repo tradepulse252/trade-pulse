@@ -30,14 +30,17 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { markets, gainers, losers, loading, error, refetch } = useAggregatedMarkets(sort);
+  const { markets, gainers, losers, loading, error, refetch, liveConnected } = useAggregatedMarkets(sort);
   const { connected, filters, setFilters, sortBy, setSortBy, sortOrder, setSortOrder, timeframe, setTimeframe } =
     useOpportunities({ limit: 50 });
 
-  const filteredMarkets = useMemo(
-    () => applyAggregatedFilters(markets, filters),
-    [markets, filters]
-  );
+  const filteredMarkets = useMemo(() => {
+    const filtered = applyAggregatedFilters(markets, filters);
+    if (sort === 'marketCap') {
+      return [...filtered].sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);
+    }
+    return filtered;
+  }, [markets, filters, sort]);
 
   const trendingTop = useMemo(
     () =>
@@ -92,7 +95,13 @@ export default function DashboardPage() {
             <div>
               <h2 className="section-title">Market Insights</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                All coins · sorted by {SORT_OPTIONS.find((o) => o.value === sort)?.label}
+                All coins on Binance, Bybit, OKX + Hyperliquid · default sort: Market Cap
+                {liveConnected && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-long">
+                    <span className="h-1.5 w-1.5 rounded-full bg-long animate-pulse" />
+                    Live prices
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

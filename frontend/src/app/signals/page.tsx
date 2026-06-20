@@ -9,11 +9,19 @@ import { cn, formatFunding, formatNumber, formatPct, getSignalClass, getSignalEm
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
 
+const SIGNAL_FILTERS = [
+  { key: 'ALL', label: 'All Signals' },
+  { key: 'STRONG_LONG', label: 'Strong Long' },
+  { key: 'WEAK_LONG', label: 'Slightly Long' },
+  { key: 'STRONG_SHORT', label: 'Strong Short' },
+  { key: 'WEAK_SHORT', label: 'Slightly Short' },
+] as const;
+
 const FORMULA_ROWS = [
   { signal: 'Strong Long', rule: 'High OI + High Volume + Negative funding', type: 'STRONG_LONG' },
-  { signal: 'Weak Long', rule: 'High OI + High Volume + Slightly negative funding', type: 'WEAK_LONG' },
+  { signal: 'Slightly Long', rule: 'High OI + High Volume + Slightly negative funding', type: 'WEAK_LONG' },
   { signal: 'Strong Short', rule: 'High OI + High Volume + Positive funding', type: 'STRONG_SHORT' },
-  { signal: 'Weak Short', rule: 'High OI + High Volume + Slightly positive funding', type: 'WEAK_SHORT' },
+  { signal: 'Slightly Short', rule: 'High OI + High Volume + Slightly positive funding', type: 'WEAK_SHORT' },
 ] as const;
 
 function ConditionBadge({ met, label }: { met: boolean; label: string }) {
@@ -61,10 +69,10 @@ export default function SignalsPage() {
   const { connected } = useOpportunities();
 
   useEffect(() => {
-    getSignals(200)
+    getSignals(500)
       .then(setSignals)
       .finally(() => setLoading(false));
-    const interval = setInterval(() => getSignals(200).then(setSignals), 60_000);
+    const interval = setInterval(() => getSignals(500).then(setSignals), 30_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -87,10 +95,7 @@ export default function SignalsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Signals</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-            Core formula: <strong className="text-foreground/90">Open Interest high</strong> +{' '}
-            <strong className="text-foreground/90">Volume high</strong> +{' '}
-            <strong className="text-foreground/90">Funding</strong> direction. Coins appear when 1, 2, or all 3
-            conditions match — stronger signals when all three align.
+            High OI + High Volume + Funding direction. Filter by Strong or Slightly Long/Short.
           </p>
         </div>
 
@@ -107,14 +112,14 @@ export default function SignalsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {(['ALL', 'STRONG_LONG', 'WEAK_LONG', 'STRONG_SHORT', 'WEAK_SHORT'] as const).map((key) => (
+          {SIGNAL_FILTERS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setFilter(key)}
               className={cn('pill-tab text-xs', filter === key && 'pill-tab-active')}
             >
-              {key === 'ALL' ? 'All' : getSignalLabel(key)} ({counts[key] ?? 0})
+              {label} ({counts[key] ?? 0})
             </button>
           ))}
         </div>
@@ -127,7 +132,7 @@ export default function SignalsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-              No coins match this filter. Data refreshes every 60s.
+              No coins match this filter. Data refreshes every 30s.
             </div>
           ) : (
             <div className="overflow-x-auto">

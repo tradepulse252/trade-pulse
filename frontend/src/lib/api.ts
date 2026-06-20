@@ -156,11 +156,11 @@ function sortAggregated(data: AggregatedMarket[], sort: MarketSort): AggregatedM
     case 'priceChange':
       return sorted.sort((a, b) => b.priceChange24h - a.priceChange24h);
     default:
-      return sorted.sort((a, b) => b.totalVolumeUsdt - a.totalVolumeUsdt);
+      return sorted.sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);
   }
 }
 
-export async function getAggregatedMarkets(sort: MarketSort = 'marketCap', limit = 200): Promise<AggregatedMarket[]> {
+export async function getAggregatedMarkets(sort: MarketSort = 'marketCap', limit = 500): Promise<AggregatedMarket[]> {
   try {
     const result = await fetchApi<{ data: AggregatedMarket[] }>(`/markets?sort=${sort}&limit=${limit}`);
     return result.data;

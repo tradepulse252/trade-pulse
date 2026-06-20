@@ -30,9 +30,9 @@ export function formatFunding(rate: number): string {
 export function getSignalLabel(type: string): string {
   const labels: Record<string, string> = {
     STRONG_LONG: 'Strong Long',
-    WEAK_LONG: 'Weak Long',
+    WEAK_LONG: 'Slightly Long',
     STRONG_SHORT: 'Strong Short',
-    WEAK_SHORT: 'Weak Short',
+    WEAK_SHORT: 'Slightly Short',
     NEUTRAL: 'Neutral',
   };
   return labels[type] ?? type;

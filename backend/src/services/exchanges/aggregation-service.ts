@@ -1,5 +1,5 @@
 import { SignalType } from '@prisma/client';
-import { env, type TimeframeKey } from '../../config/env';
+import { type TimeframeKey } from '../../config/env';
 import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
@@ -8,9 +8,10 @@ import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
+import { broadcastMarkets } from '../websocket/ws-broadcast';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
 
-const REFRESH_MS = 120_000;
+const REFRESH_MS = 30_000;
 const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
 const CARD_TIMEFRAMES: TimeframeKey[] = ['5m', '15m', '30m', '1h', '2h', '4h', '24h'];
 
@@ -44,6 +45,19 @@ class AggregationService {
 
   getMarkets(): AggregatedMarket[] {
     return this.markets;
+  }
+
+  /** Merge live Binance ticker prices between aggregation refreshes */
+  patchLivePrice(baseAsset: string, price: number, priceChange24h?: number): void {
+    if (!price || price <= 0) return;
+    const idx = this.markets.findIndex((m) => m.baseAsset === baseAsset);
+    if (idx < 0) return;
+    const m = this.markets[idx];
+    this.markets[idx] = {
+      ...m,
+      price,
+      priceChange24h: priceChange24h ?? m.priceChange24h,
+    };
   }
 
   getSignals(): AggregatedMarket[] {
@@ -117,7 +131,7 @@ class AggregationService {
     const byBase = new Map<string, VenueSnapshot[]>();
 
     for (const v of venues) {
-      if (v.volumeUsdt < env.MIN_VOLUME_USDT / 4) continue;
+      if (v.price <= 0) continue;
       const list = byBase.get(v.baseAsset) ?? [];
       list.push(v);
       byBase.set(v.baseAsset, list);
@@ -144,7 +158,7 @@ class AggregationService {
         weightSum += v.volumeUsdt;
       }
 
-      if (totalVolume < env.MIN_VOLUME_USDT) continue;
+      if (totalVolume <= 0 && list.every((v) => v.volumeUsdt <= 0)) continue;
 
       const price = weightSum > 0 ? priceWeightedSum / weightSum : list[0].price;
       const priceChange24h = weightSum > 0 ? changeWeightedSum / weightSum : 0;
@@ -267,6 +281,7 @@ class AggregationService {
 
       this.buildGainersLosers(aggregated);
       this.lastRefresh = Date.now();
+      broadcastMarkets(this.markets);
     } finally {
       this.refreshing = false;
     }

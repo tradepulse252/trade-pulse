@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
-import { cn, formatFunding, formatNumber, formatPct, formatPrice, getSignalLabel } from '@/lib/utils';
+import { cn, formatFunding, formatNumber, formatPct, getSignalLabel } from '@/lib/utils';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { Loader2 } from 'lucide-react';
 
 import { CoinLogo } from '@/components/ui/CoinLogo';
+import { LivePrice } from '@/components/dashboard/LivePrice';
 
 interface AggregatedMarketsTableProps {
   markets: AggregatedMarket[];
@@ -83,7 +84,9 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
                 <td className="py-4 px-4 text-right data-cell text-muted-foreground">
                   {Number(m.marketCap) > 0 ? `$${formatNumber(Number(m.marketCap))}` : '—'}
                 </td>
-                <td className="py-4 px-4 text-right data-cell">{formatPrice(m.price)}</td>
+                <td className="py-4 px-4 text-right data-cell">
+                  <LivePrice price={m.price} />
+                </td>
                 <td className="py-4 px-4 text-right"><PctCell value={m.priceChange24h} /></td>
                 <td className="py-4 px-4 text-right data-cell text-muted-foreground">${formatNumber(m.totalVolumeUsdt)}</td>
                 <td className="py-4 px-4 text-right data-cell text-muted-foreground">${formatNumber(m.totalOpenInterest)}</td>
