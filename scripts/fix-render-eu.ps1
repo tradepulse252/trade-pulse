@@ -78,6 +78,7 @@ foreach ($envFile in $envFiles) {
 }
 
 foreach ($ev in $envVars) {
+  if ([string]::IsNullOrWhiteSpace($ev.value)) { continue }
   $body = @{ value = $ev.value } | ConvertTo-Json
   try {
     Invoke-RestMethod -Method Put `
