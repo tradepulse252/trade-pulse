@@ -11,8 +11,9 @@ const LOGO_ALIASES: Record<string, string> = {
 
 export function normalizeCoinSymbol(baseAsset: string): string {
   let s = baseAsset.toLowerCase().replace(/usdt$/, '');
+  if (LOGO_ALIASES[s]) return LOGO_ALIASES[s];
   if (s.startsWith('1000')) s = s.slice(4);
-  return LOGO_ALIASES[s] ?? s;
+  return s;
 }
 
 /** Ordered logo sources — first match wins */

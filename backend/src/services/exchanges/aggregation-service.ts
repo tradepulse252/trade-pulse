@@ -6,8 +6,9 @@ import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter
 import { fetchBybitVenues } from './bybit-adapter';
 import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
-import { fetchCoinMarketMeta, type CoinMarketMeta } from './coingecko-client';
+import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
+import { normalizeMarketSymbol } from './coin-symbols';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
 
 const REFRESH_MS = 120_000;
@@ -174,7 +175,7 @@ class AggregationService {
       );
       const { score, priceMomentum } = calculateOpportunityScore(growthMatrix, avgFundingRate, signalType);
 
-      const meta = marketMeta.get(baseAsset);
+      const meta = lookupMarketMeta(baseAsset, marketMeta);
 
       results.push({
         baseAsset,
@@ -183,8 +184,8 @@ class AggregationService {
         totalVolumeUsdt: totalVolume,
         totalOpenInterest: totalOi,
         avgFundingRate,
-        marketCap: meta?.marketCap ?? 0,
-        iconUrl: meta?.imageUrl ?? coinCapIconUrl(baseAsset),
+        marketCap: Number(meta?.marketCap) || 0,
+        iconUrl: meta?.imageUrl || coinCapIconUrl(baseAsset),
         priceChange24h,
         oiChangePct,
         volumeChangePct,
@@ -248,7 +249,8 @@ class AggregationService {
         })
       );
 
-      const marketMeta = await fetchCoinMarketMeta();
+      const lookupSymbols = [...new Set(allVenues.map((v) => normalizeMarketSymbol(v.baseAsset)))];
+      const marketMeta = await fetchCoinMarketMeta(lookupSymbols);
       const aggregated = this.aggregateVenues(allVenues, marketMeta);
 
       aggregated.sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);

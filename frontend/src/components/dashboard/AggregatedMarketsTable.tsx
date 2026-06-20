@@ -81,7 +81,7 @@ export function AggregatedMarketsTable({ markets, loading, search }: AggregatedM
                   </Link>
                 </td>
                 <td className="py-4 px-4 text-right data-cell text-muted-foreground">
-                  {m.marketCap > 0 ? `$${formatNumber(m.marketCap)}` : '—'}
+                  {Number(m.marketCap) > 0 ? `$${formatNumber(Number(m.marketCap))}` : '—'}
                 </td>
                 <td className="py-4 px-4 text-right data-cell">{formatPrice(m.price)}</td>
                 <td className="py-4 px-4 text-right"><PctCell value={m.priceChange24h} /></td>

@@ -42,7 +42,7 @@ function FullList({ items, positive, title }: { items: GainerLoser[]; positive: 
                 </td>
                 <td className="py-3 px-2 text-right data-cell text-muted-foreground">${formatNumber(item.totalVolumeUsdt)}</td>
                 <td className="py-3 px-2 text-right data-cell text-muted-foreground">
-                  {item.marketCap > 0 ? `$${formatNumber(item.marketCap)}` : '—'}
+                  {Number(item.marketCap) > 0 ? `$${formatNumber(Number(item.marketCap))}` : '—'}
                 </td>
                 <td className="py-3 px-2 text-right text-xs text-muted-foreground">{item.exchanges.join(', ')}</td>
               </tr>
