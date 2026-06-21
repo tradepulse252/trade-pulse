@@ -5,10 +5,13 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { getSignals } from '@/lib/api';
 import type { AggregatedMarket } from '@/lib/api';
+import { FlowSummaryCell, InflowOutflowStrip } from '@/components/dashboard/InflowOutflowStrip';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
 import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
-import { FLOW_TIMEFRAMES } from '@/lib/flow';
-import { changeUsdFromPct } from '@/lib/metrics';
+import { TimeframeSelector } from '@/components/dashboard/TimeframeSelector';
+import { FLOW_TIMEFRAMES, type FlowTimeframe } from '@/lib/flow';
+import { getTfMetric } from '@/lib/metrics';
+import { getTimeframeLabel, type TimeframeKey } from '@/lib/sorting';
 import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
@@ -70,7 +73,10 @@ export default function SignalsPage() {
   const [signals, setSignals] = useState<AggregatedMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
+  const [timeframe, setTimeframe] = useState<TimeframeKey>('1h');
   const { connected } = useOpportunities();
+  const tf = timeframe as FlowTimeframe;
+  const tfLabel = getTimeframeLabel(timeframe);
 
   useEffect(() => {
     getSignals(500)
@@ -95,11 +101,12 @@ export default function SignalsPage() {
 
   return (
     <AppShell connected={connected}>
-      <div className="p-5 lg:p-6 max-w-[1200px] space-y-6">
+      <div className="p-5 lg:p-6 max-w-[1400px] space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Signals</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-            High OI + High Volume + Funding direction. Filter by Strong or Slightly Long/Short.
+            Live formula on data from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX). Calculated on receive — not stored in
+            database.
           </p>
         </div>
 
@@ -115,17 +122,20 @@ export default function SignalsPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {SIGNAL_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              className={cn('pill-tab text-xs', filter === key && 'pill-tab-active')}
-            >
-              {label} ({counts[key] ?? 0})
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            {SIGNAL_FILTERS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={cn('pill-tab text-xs', filter === key && 'pill-tab-active')}
+              >
+                {label} ({counts[key] ?? 0})
+              </button>
+            ))}
+          </div>
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} className="ml-auto" />
         </div>
 
         <div className="glass-card overflow-hidden">
@@ -148,76 +158,107 @@ export default function SignalsPage() {
                     <th className="text-left py-3 px-4">Signal</th>
                     <th className="text-left py-3 px-4">Conditions</th>
                     <th className="text-right py-3 px-4">Score</th>
-                    <th className="text-right py-3 px-4 min-w-[420px]">Open Interest & Volume (USDT)</th>
+                    <th className="text-right py-3 px-4 min-w-[360px]">
+                      OI & Volume <span className="text-primary/80">({tfLabel})</span>
+                    </th>
+                    <th className="text-right py-3 px-4 min-w-[280px]">
+                      Inflow / Outflow <span className="text-primary/80">({tfLabel})</span>
+                    </th>
                     <th className="text-right py-3 px-4">Funding</th>
                     <th className="text-right py-3 px-4 pr-4">24h</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((s, i) => {
-                    const oiUsd = changeUsdFromPct(s.totalOpenInterest, s.oiChangePct);
-                    const volUsd = changeUsdFromPct(s.totalVolumeUsdt, s.volumeChangePct);
+                    const tfMetric = getTfMetric(
+                      s.growthMatrix,
+                      tf,
+                      s.totalOpenInterest,
+                      s.totalVolumeUsdt,
+                      s.oiChangePct,
+                      s.volumeChangePct
+                    );
                     return (
-                    <tr key={s.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] align-top">
-                      <td className="py-3 px-4 text-muted-foreground">{s.rank ?? i + 1}</td>
-                      <td className="py-3 px-4">
-                        <Link
-                          href={`/coin/${s.symbol}`}
-                          className="font-semibold hover:text-primary inline-flex items-center gap-1"
+                      <tr key={s.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] align-top">
+                        <td className="py-3 px-4 text-muted-foreground">{s.rank ?? i + 1}</td>
+                        <td className="py-3 px-4">
+                          <Link
+                            href={`/coin/${s.symbol}`}
+                            className="font-semibold hover:text-primary inline-flex items-center gap-1"
+                          >
+                            {s.baseAsset}
+                            <ArrowUpRight className="h-3 w-3" />
+                          </Link>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">{s.exchanges.join(', ')}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={cn('text-xs font-semibold', getSignalClass(s.signalType))}>
+                            {getSignalEmoji(s.signalType)} {getSignalLabel(s.signalType)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <SignalConditions market={s} />
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-primary font-semibold">
+                          {s.opportunityScore.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-4 min-w-[360px]">
+                          <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                                Open Interest
+                              </p>
+                              <MoneyPctCell
+                                totalUsd={s.totalOpenInterest}
+                                changeUsd={tfMetric.oiChangeUsd}
+                                changePct={tfMetric.oiChangePct}
+                              />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
+                              <MoneyPctCell
+                                totalUsd={s.totalVolumeUsdt}
+                                changeUsd={tfMetric.volumeChangeUsd}
+                                changePct={tfMetric.volumeChangePct}
+                              />
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto pb-1">
+                            <div className="min-w-[560px]">
+                              <OiVolumeTfStrip
+                                market={s}
+                                mode="both"
+                                timeframes={FLOW_TIMEFRAMES}
+                                activeTimeframe={tf}
+                                compact
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 min-w-[280px]">
+                          <FlowSummaryCell market={s} timeframe={tf} />
+                          <div className="mt-2 overflow-x-auto">
+                            <div className="min-w-[420px]">
+                              <InflowOutflowStrip
+                                market={s}
+                                timeframes={FLOW_TIMEFRAMES}
+                                activeTimeframe={tf}
+                                compact
+                                showExchangeNote
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>
+                        <td
+                          className={cn(
+                            'py-3 px-4 pr-4 text-right tabular-nums text-xs',
+                            s.priceChange24h >= 0 ? 'text-long' : 'text-short'
+                          )}
                         >
-                          {s.baseAsset}
-                          <ArrowUpRight className="h-3 w-3" />
-                        </Link>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={cn('text-xs font-semibold', getSignalClass(s.signalType))}>
-                          {getSignalEmoji(s.signalType)} {getSignalLabel(s.signalType)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <SignalConditions market={s} />
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-primary font-semibold">
-                        {s.opportunityScore.toFixed(1)}
-                      </td>
-                      <td className="py-3 px-4 min-w-[420px]">
-                        <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
-                          <div className="text-right">
-                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Open Interest</p>
-                            <MoneyPctCell
-                              totalUsd={s.totalOpenInterest}
-                              changeUsd={oiUsd}
-                              changePct={s.oiChangePct}
-                            />
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
-                            <MoneyPctCell
-                              totalUsd={s.totalVolumeUsdt}
-                              changeUsd={volUsd}
-                              changePct={s.volumeChangePct}
-                            />
-                          </div>
-                        </div>
-                        <div className="overflow-x-auto pb-1">
-                          <div className="min-w-[560px]">
-                            <p className="text-[10px] text-muted-foreground mb-1 text-right">
-                              All timeframes — $ change and %
-                            </p>
-                            <OiVolumeTfStrip market={s} mode="both" timeframes={FLOW_TIMEFRAMES} compact />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>
-                      <td
-                        className={cn(
-                          'py-3 px-4 pr-4 text-right tabular-nums text-xs',
-                          s.priceChange24h >= 0 ? 'text-long' : 'text-short'
-                        )}
-                      >
-                        {formatPct(s.priceChange24h)}
-                      </td>
-                    </tr>
+                          {formatPct(s.priceChange24h)}
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>

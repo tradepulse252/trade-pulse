@@ -4,11 +4,21 @@ import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
-import { formatPct, formatPrice } from '@/lib/utils';
+import { FLOW_TIMEFRAMES, type FlowTimeframe } from '@/lib/flow';
+import { formatNumber, formatPct, formatPrice } from '@/lib/utils';
+import type { TimeframeKey } from '@/lib/sorting';
+import { getTimeframeLabel } from '@/lib/sorting';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { cn } from '@/lib/utils';
 
-export function AggregatedTrendingCard({ market }: { market: AggregatedMarket }) {
+export function AggregatedTrendingCard({
+  market,
+  timeframe = '1h',
+}: {
+  market: AggregatedMarket;
+  timeframe?: TimeframeKey;
+}) {
+  const tf = timeframe as FlowTimeframe;
   const sparkValues = getOpportunitySparkline(market.growthMatrix, market.priceChange24h);
   const positive = market.priceChange24h >= 0;
 
@@ -35,9 +45,12 @@ export function AggregatedTrendingCard({ market }: { market: AggregatedMarket })
 
         <div>
           <p className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1.5">
-            OI & Volume · 5m → 24h ($ and %)
+            OI & Volume · {getTimeframeLabel(timeframe)} + all TFs ($ and %)
           </p>
-          <OiVolumeTfStrip market={market} mode="both" compact />
+          <p className="text-[9px] font-mono text-muted-foreground mb-1">
+            OI ${formatNumber(market.totalOpenInterest)} · V ${formatNumber(market.totalVolumeUsdt)}
+          </p>
+          <OiVolumeTfStrip market={market} mode="both" timeframes={FLOW_TIMEFRAMES} activeTimeframe={tf} compact />
         </div>
       </article>
     </Link>

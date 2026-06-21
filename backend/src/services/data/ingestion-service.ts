@@ -34,7 +34,10 @@ class IngestionService {
     this.starting = true;
 
     this.dbEnabled = await this.checkDatabase();
-    console.log(`[ingestion] Mode: ${this.dbEnabled ? 'database + live' : 'live-only (no DB)'}`);
+    const persist = this.dbEnabled && env.PERSIST_MARKET_DATA;
+    console.log(
+      `[ingestion] Mode: ${this.dbEnabled ? 'database connected' : 'live-only (no DB)'} · market persist: ${persist ? 'on' : 'off'}`
+    );
     console.log(`[ingestion] Binance API key: ${env.BINANCE_API_KEY ? 'configured' : 'not set (using public endpoints)'}`);
 
     // WebSocket is independent of REST — register streams and connect first
@@ -257,7 +260,7 @@ class IngestionService {
 
       let symbolId = sym.symbol;
 
-      if (this.dbEnabled) {
+      if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
         try {
           const lotSizeFilter = sym.filters.find((f) => f.filterType === 'LOT_SIZE');
           const priceFilter = sym.filters.find((f) => f.filterType === 'PRICE_FILTER');
@@ -312,7 +315,7 @@ class IngestionService {
       this.marketData.set(ticker.symbol, snapshot);
       seedFromTicker(ticker.symbol, price, volumeUsdt, priceChange24h);
 
-      if (this.dbEnabled) {
+      if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
         await this.persistSnapshot(snapshot).catch(() => {});
       }
     }
@@ -367,7 +370,7 @@ class IngestionService {
       memoryStore.push(symbol, 'oi', oiValue);
       refreshed++;
 
-      if (this.dbEnabled) {
+      if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
         await prisma.openInterestSnapshot
           .create({
             data: { symbolId, openInterest: oiBase, openInterestValue: oiValue, timestamp: new Date() },
@@ -489,7 +492,7 @@ class IngestionService {
   }
 
   private async getHistory(symbol: string, symbolId: string) {
-    if (this.dbEnabled) {
+    if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
       try {
         const [priceHistory, oiHistory, volumeHistory] = await Promise.all([
           prisma.priceSnapshot.findMany({
@@ -587,7 +590,7 @@ class IngestionService {
 
         opportunities.push(opportunity);
 
-        if (this.dbEnabled) {
+        if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
           await this.persistSignal(snapshot, opportunity, lookback, growthMatrix).catch(() => {});
         }
       }

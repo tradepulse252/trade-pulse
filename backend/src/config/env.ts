@@ -37,6 +37,12 @@ const envSchema = z.object({
     .optional()
     .default('true')
     .transform((v) => v === 'true'),
+  /** When false (default), market snapshots/signals are computed live only — not written to DB. */
+  PERSIST_MARKET_DATA: z
+    .enum(['true', 'false'])
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
 });
 

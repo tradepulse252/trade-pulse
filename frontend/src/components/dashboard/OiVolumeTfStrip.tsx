@@ -16,6 +16,8 @@ interface OiVolumeTfStripProps {
   mode?: 'both' | 'oi' | 'volume';
   timeframes?: readonly FlowTimeframe[];
   compact?: boolean;
+  /** Highlight the actively selected timeframe */
+  activeTimeframe?: FlowTimeframe;
 }
 
 function DeltaLine({
@@ -50,6 +52,7 @@ export function OiVolumeTfStrip({
   mode = 'both',
   timeframes = DEFAULT_TFS,
   compact,
+  activeTimeframe,
 }: OiVolumeTfStripProps) {
   return (
     <div
@@ -74,7 +77,8 @@ export function OiVolumeTfStrip({
             key={tf}
             className={cn(
               'rounded-md border border-white/[0.06] bg-white/[0.02] px-1 py-1 text-center min-w-0',
-              compact ? 'py-0.5' : 'py-1'
+              compact ? 'py-0.5' : 'py-1',
+              activeTimeframe === tf && 'border-primary/35 bg-primary/5 ring-1 ring-primary/25'
             )}
             title={`${FLOW_TIMEFRAME_LABELS[tf]} OI / Volume`}
           >

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { SignalType } from '@prisma/client';
 import { z } from 'zod';
+import { env } from '../config/env';
 import { prisma } from '../lib/prisma';
 import { cacheGet } from '../lib/redis';
 import { ingestionService } from '../services/data/ingestion-service';
@@ -56,6 +57,34 @@ router.get('/', async (req: Request, res: Response) => {
   if (cached) {
     const filtered = applyFilters(cached, filters);
     res.json({ data: filtered, source: 'cache', count: filtered.length });
+    return;
+  }
+
+  // No live Binance feed — return aggregated multi-exchange data (no DB)
+  const { aggregationService } = await import('../services/exchanges/aggregation-service');
+  const agg: OpportunityResult[] = aggregationService.getMarkets().map((m) => ({
+    symbol: m.symbol,
+    symbolId: m.symbol,
+    signalType: m.signalType as OpportunityResult['signalType'],
+    opportunityScore: m.opportunityScore,
+    price: m.price,
+    openInterest: m.totalOpenInterest,
+    oiChangePct: m.oiChangePct,
+    volumeUsdt: m.totalVolumeUsdt,
+    volumeChangePct: m.volumeChangePct,
+    fundingRate: m.avgFundingRate,
+    priceMomentum: m.priceMomentum,
+    rank: m.rank,
+    growthMatrix: m.growthMatrix,
+  }));
+  if (agg.length > 0) {
+    const filtered = applyFilters(agg, filters);
+    res.json({ data: filtered, source: 'aggregated-live', count: filtered.length });
+    return;
+  }
+
+  if (!env.PERSIST_MARKET_DATA) {
+    res.json({ data: [], source: 'live', count: 0 });
     return;
   }
 

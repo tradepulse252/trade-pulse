@@ -9,12 +9,14 @@ import { AggregatedMarketsTable } from '@/components/dashboard/AggregatedMarkets
 import { AggregatedTrendingCard } from '@/components/dashboard/AggregatedTrendingCard';
 import { GainersLosersPanel } from '@/components/dashboard/GainersLosersPanel';
 import { InsightStatCard } from '@/components/dashboard/InsightStatCard';
+import { TimeframeSelector } from '@/components/dashboard/TimeframeSelector';
 import { useAggregatedMarkets } from '@/hooks/useAggregatedMarkets';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { applyAggregatedFilters } from '@/lib/filters';
 import { cn } from '@/lib/utils';
 import { ArrowRight, RefreshCw, TrendingUp, Zap, Target } from 'lucide-react';
 import type { MarketSort } from '@/lib/api';
+import type { TimeframeKey } from '@/lib/sorting';
 
 const SORT_OPTIONS: { value: MarketSort; label: string }[] = [
   { value: 'marketCap', label: 'Market Cap' },
@@ -26,6 +28,7 @@ const SORT_OPTIONS: { value: MarketSort; label: string }[] = [
 
 export default function DashboardPage() {
   const [sort, setSort] = useState<MarketSort>('marketCap');
+  const [metricTimeframe, setMetricTimeframe] = useState<TimeframeKey>('1h');
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -86,7 +89,9 @@ export default function DashboardPage() {
               ? Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="glass-card h-[140px] animate-pulse bg-white/[0.02]" />
                 ))
-              : trendingTop.map((m) => <AggregatedTrendingCard key={m.symbol} market={m} />)}
+              : trendingTop.map((m) => (
+                  <AggregatedTrendingCard key={m.symbol} market={m} timeframe={metricTimeframe} />
+                ))}
           </div>
         </section>
 
@@ -95,7 +100,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="section-title">Market Insights</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                All coins on Binance, Bybit, OKX + Hyperliquid · default sort: Market Cap
+                Live from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX) · calculated on receive, not stored
                 {liveConnected && (
                   <span className="ml-2 inline-flex items-center gap-1 text-long">
                     <span className="h-1.5 w-1.5 rounded-full bg-long animate-pulse" />
@@ -104,7 +109,9 @@ export default function DashboardPage() {
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <TimeframeSelector value={metricTimeframe} onChange={setMetricTimeframe} />
+              <div className="flex flex-wrap items-center gap-2">
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -125,6 +132,7 @@ export default function DashboardPage() {
               <button type="button" onClick={handleRefresh} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-white/[0.05]">
                 <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
               </button>
+              </div>
             </div>
           </div>
 
@@ -152,7 +160,12 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                <AggregatedMarketsTable markets={filteredMarkets} loading={loading} search={search} />
+                <AggregatedMarketsTable
+                  markets={filteredMarkets}
+                  loading={loading}
+                  search={search}
+                  timeframe={metricTimeframe}
+                />
               )}
             </div>
 
