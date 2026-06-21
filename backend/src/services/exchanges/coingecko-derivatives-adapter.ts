@@ -67,7 +67,7 @@ export async function fetchCoinGeckoDerivativeVenues(
     const cached = venueCache.venues;
     if (!exchangeFilter) return cached;
     const allowed = new Set(exchangeFilter);
-    return cached.filter((v) => allowed.has(v.exchange));
+    return cached.filter((v) => allowed.has(String(v.exchange) as ExchangeId));
   }
 
   const res = await fetch('https://api.coingecko.com/api/v3/derivatives?include_tickers=unexpired', {

@@ -1,6 +1,5 @@
 import { SignalType } from '@prisma/client';
 import { env, type TimeframeKey } from '../../config/env';
-import { isBinanceIpBanned } from '../binance/rest-client';
 import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
@@ -12,6 +11,11 @@ import { fetchMexcVenues } from './mexc-adapter';
 import { fetchKrakenVenues } from './kraken-adapter';
 import { fetchCoinbaseVenues } from './coinbase-adapter';
 import { fetchCoinGeckoDerivativeVenues } from './coingecko-derivatives-adapter';
+import {
+  buildGrowthMatrixFromCoinMarket,
+  fetchAllCoinsMarkets,
+} from '../coinglass/service';
+import { isBinanceIpBanned } from '../binance/rest-client';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
 import { broadcastMarkets } from '../websocket/ws-broadcast';
@@ -122,16 +126,33 @@ class AggregationService {
     totalVolume: number,
     priceChange24h: number,
     oiChangePct: number,
-    volumeChangePct: number
+    volumeChangePct: number,
+    cgGrowth?: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>
   ) {
-    const h = this.assetHistory.get(baseAsset);
-    if (h && h.price.length >= 2) {
-      return buildGrowthMatrix(price, totalOi, totalVolume, h.price, h.oi, h.volume, CARD_TIMEFRAMES);
+    if (cgGrowth && Object.keys(cgGrowth).length > 0) {
+      return cgGrowth;
     }
-    // Bootstrap until history accumulates (~few refresh cycles)
-    const matrix: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }> = {};
+
+    const h = this.assetHistory.get(baseAsset);
+    let matrix: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
+
+    if (h && h.price.length >= 2) {
+      matrix = buildGrowthMatrix(price, totalOi, totalVolume, h.price, h.oi, h.volume, CARD_TIMEFRAMES);
+      const g24 = matrix['24h'];
+      if (g24 && g24.oiChangePct === 0 && g24.volumeChangePct === 0 && (oiChangePct !== 0 || volumeChangePct !== 0)) {
+        matrix['24h'] = {
+          priceChangePct: priceChange24h,
+          oiChangePct,
+          volumeChangePct,
+        };
+      }
+      return matrix;
+    }
+
+    matrix = {};
     for (const tf of CARD_TIMEFRAMES) {
-      const scale = tf === '24h' ? 1 : tf === '4h' ? 4 / 24 : tf === '2h' ? 2 / 24 : tf === '1h' ? 1 / 24 : 0.5 / 24;
+      const scale =
+        tf === '24h' ? 1 : tf === '4h' ? 4 / 24 : tf === '2h' ? 2 / 24 : tf === '1h' ? 1 / 24 : 0.5 / 24;
       matrix[tf] = {
         priceChangePct: priceChange24h * scale,
         oiChangePct: oiChangePct * scale,
@@ -141,7 +162,28 @@ class AggregationService {
     return matrix;
   }
 
-  private aggregateVenues(venues: VenueSnapshot[], marketMeta: Map<string, CoinMarketMeta>): AggregatedMarket[] {
+  private cgCoinsCache: Map<string, ReturnType<typeof buildGrowthMatrixFromCoinMarket>> = new Map();
+  private lastCgFetch = 0;
+
+  private async refreshCoinGlassBulk() {
+    if (!env.COINGLASS_API_KEY) return;
+    const now = Date.now();
+    if (now - this.lastCgFetch < 120_000 && this.cgCoinsCache.size > 0) return;
+
+    const coins = await fetchAllCoinsMarkets(3);
+    if (coins.size === 0) return;
+
+    for (const [sym, coin] of coins) {
+      this.cgCoinsCache.set(sym, buildGrowthMatrixFromCoinMarket(coin));
+    }
+    this.lastCgFetch = now;
+    this.exchangeStatus.coinglass = 'ok';
+  }
+
+  private aggregateVenues(
+    venues: VenueSnapshot[],
+    marketMeta: Map<string, CoinMarketMeta>
+  ): AggregatedMarket[] {
     const byBase = new Map<string, VenueSnapshot[]>();
 
     for (const v of venues) {
@@ -191,8 +233,12 @@ class AggregationService {
         totalVolume,
         priceChange24h,
         oiChangePct,
-        volumeChangePct
+        volumeChangePct,
+        this.cgCoinsCache.get(baseAsset)
       );
+
+      const dataSources: string[] = ['aggregated'];
+      if (this.cgCoinsCache.has(baseAsset)) dataSources.push('coinglass');
 
       const { signalType, conditions } = evaluateSignal(
         growthMatrix['1h']?.oiChangePct ?? oiChangePct,
@@ -228,6 +274,7 @@ class AggregationService {
         exchanges: [...new Set(list.map((v) => v.exchange))],
         venues: list,
         growthMatrix,
+        dataSources,
       });
 
       this.previousSnapshots.set(baseAsset, {
@@ -341,6 +388,8 @@ class AggregationService {
           this.exchangeStatus.coingecko = 'error';
         }
       }
+
+      await this.refreshCoinGlassBulk();
 
       const baseAssets = [...new Set(allVenues.map((v) => v.baseAsset))];
       const marketMeta = await fetchCoinMarketMeta(baseAssets);

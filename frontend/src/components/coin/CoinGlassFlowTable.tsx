@@ -5,7 +5,7 @@ import { FLOW_TIMEFRAMES, getCoinGlassFlowRow, type FlowTimeframe } from '@/lib/
 import { cn, formatNumber, formatPct } from '@/lib/utils';
 
 function FlowAmount({ value, variant }: { value: number; variant: 'in' | 'out' }) {
-  if (value < 0.01) {
+  if (!Number.isFinite(value) || value <= 0) {
     return <span className="font-mono tabular-nums text-xs text-muted-foreground">—</span>;
   }
   return (
@@ -54,7 +54,7 @@ export function CoinGlassFlowTable({ market }: { market: AggregatedMarket }) {
                       netPositive ? 'text-long' : 'text-short'
                     )}
                   >
-                    {Math.abs(row.netInflow) < 0.01
+                    {Math.abs(row.netInflow) <= 0
                       ? '—'
                       : `${netPositive ? '+' : '-'}$${formatNumber(Math.abs(row.netInflow))}`}
                   </span>

@@ -43,6 +43,8 @@ export interface AggregatedMarket {
     fundingBand: string;
   };
   venues?: VenueSnapshot[];
+  flowMatrix?: Record<string, { inflow: number; outflow: number; netInflow: number; netChgPct: number; netInflowMcap: number }>;
+  dataSources?: string[];
 }
 
 export interface VenueSnapshot {

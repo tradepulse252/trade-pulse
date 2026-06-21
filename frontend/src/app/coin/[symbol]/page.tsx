@@ -145,7 +145,7 @@ export default function CoinDetailPage() {
 
             <div className="glass-card p-4">
               <h2 className="text-sm font-semibold mb-3">{market.baseAsset} Live Chart</h2>
-              <TradingViewChart symbol={tvSymbol} height={720} />
+                <TradingViewChart symbol={tvSymbol} />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

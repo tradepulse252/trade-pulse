@@ -1,3 +1,5 @@
+'use client';
+
 import type { AggregatedMarket } from './api';
 import { changeUsdFromPct } from './metrics';
 
@@ -24,6 +26,14 @@ const TF_MINUTES: Record<FlowTimeframe, number> = {
   '24h': 1440,
 };
 
+export interface FlowTimeframeRow {
+  inflow: number;
+  outflow: number;
+  netInflow: number;
+  netChgPct: number;
+  netInflowMcap: number;
+}
+
 export const AGGREGATED_EXCHANGES = [
   'Binance',
   'Bybit',
@@ -33,35 +43,50 @@ export const AGGREGATED_EXCHANGES = [
   'Kraken',
   'Hyperliquid',
   'Aster',
+  'CoinGlass',
 ] as const;
 
-/** Per-timeframe OI/vol % — never reuse the same fallback for every row */
+function interpolate2h(matrix: AggregatedMarket['growthMatrix']) {
+  const h1 = matrix?.['1h'];
+  const h4 = matrix?.['4h'];
+  if (!h1 && !h4) return null;
+  if (h1 && h4) {
+    return {
+      oiChangePct: (h1.oiChangePct + h4.oiChangePct) / 2,
+      volumeChangePct: (h1.volumeChangePct + h4.volumeChangePct) / 2,
+    };
+  }
+  return h1 ?? h4 ?? null;
+}
+
+/** Per-timeframe OI/vol % with CoinGlass + scaled fallbacks */
 export function getTfGrowthPct(
   growthMatrix: AggregatedMarket['growthMatrix'] | undefined,
   timeframe: FlowTimeframe,
   fallbackOi = 0,
   fallbackVol = 0
 ) {
+  if (timeframe === '2h') {
+    const interp = interpolate2h(growthMatrix);
+    if (interp) return interp;
+  }
+
   const g = growthMatrix?.[timeframe];
-  if (g && (g.oiChangePct !== 0 || g.volumeChangePct !== 0)) {
-    return { oiChangePct: g.oiChangePct, volumeChangePct: g.volumeChangePct };
+  if (g) {
+    return { oiChangePct: g.oiChangePct ?? 0, volumeChangePct: g.volumeChangePct ?? 0 };
   }
 
   const g24 = growthMatrix?.['24h'];
-  if (g24 && (g24.oiChangePct !== 0 || g24.volumeChangePct !== 0) && timeframe !== '24h') {
-    const scale = TF_MINUTES[timeframe] / TF_MINUTES['24h'];
-    return {
-      oiChangePct: g24.oiChangePct * scale,
-      volumeChangePct: g24.volumeChangePct * scale,
-    };
-  }
+  const baseOi = g24?.oiChangePct ?? fallbackOi;
+  const baseVol = g24?.volumeChangePct ?? fallbackVol;
 
   if (timeframe === '24h') {
-    return { oiChangePct: fallbackOi, volumeChangePct: fallbackVol };
+    return { oiChangePct: baseOi, volumeChangePct: baseVol };
   }
 
-  if (g) {
-    return { oiChangePct: g.oiChangePct, volumeChangePct: g.volumeChangePct };
+  if (baseOi !== 0 || baseVol !== 0) {
+    const scale = TF_MINUTES[timeframe] / TF_MINUTES['24h'];
+    return { oiChangePct: baseOi * scale, volumeChangePct: baseVol * scale };
   }
 
   return { oiChangePct: 0, volumeChangePct: 0 };
@@ -116,20 +141,43 @@ export function getFlowMetrics(
   };
 }
 
-/** CoinGlass-style flow row: Inflow | Outflow | Net Inflow | Net Chg % | Net Inflow/MCap */
-export function getCoinGlassFlowRow(
+function computedFlowRow(
   market: Pick<
     AggregatedMarket,
     'growthMatrix' | 'totalOpenInterest' | 'totalVolumeUsdt' | 'oiChangePct' | 'volumeChangePct' | 'marketCap'
   >,
   timeframe: FlowTimeframe
-) {
+): FlowTimeframeRow {
   const { oiUsd, volUsd, oiChangePct, volumeChangePct } = getFlowMetrics(market, timeframe);
-  const inflow = (oiUsd > 0 ? oiUsd : 0) + (volUsd > 0 ? volUsd : 0);
-  const outflow = (oiUsd < 0 ? -oiUsd : 0) + (volUsd < 0 ? -volUsd : 0);
+  const inflow = Math.max(oiUsd, 0) + Math.max(volUsd, 0);
+  const outflow = Math.max(-oiUsd, 0) + Math.max(-volUsd, 0);
   const netInflow = oiUsd + volUsd;
   const netChgPct = (oiChangePct + volumeChangePct) / 2;
   const netInflowMcap = market.marketCap > 0 ? (netInflow / market.marketCap) * 100 : 0;
+  return { inflow, outflow, netInflow, netChgPct, netInflowMcap };
+}
 
-  return { inflow, outflow, netInflow, netChgPct, netInflowMcap, oiUsd, volUsd };
+/** CoinGlass flow row — prefers API flowMatrix, falls back to computed OI/vol */
+export function getCoinGlassFlowRow(
+  market: Pick<
+    AggregatedMarket,
+    | 'growthMatrix'
+    | 'flowMatrix'
+    | 'totalOpenInterest'
+    | 'totalVolumeUsdt'
+    | 'oiChangePct'
+    | 'volumeChangePct'
+    | 'marketCap'
+  >,
+  timeframe: FlowTimeframe
+): FlowTimeframeRow & { oiUsd: number; volUsd: number } {
+  const cg = market.flowMatrix?.[timeframe];
+  if (cg && (cg.inflow > 0 || cg.outflow > 0 || Math.abs(cg.netInflow) > 0)) {
+    const { oiUsd, volUsd } = getFlowMetrics(market, timeframe);
+    return { ...cg, oiUsd, volUsd };
+  }
+
+  const computed = computedFlowRow(market, timeframe);
+  const { oiUsd, volUsd } = getFlowMetrics(market, timeframe);
+  return { ...computed, oiUsd, volUsd };
 }

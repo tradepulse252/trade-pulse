@@ -1,16 +1,31 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 interface TradingViewChartProps {
   symbol: string;
   exchange?: 'BINANCE' | 'BYBIT' | 'OKX';
-  height?: number;
 }
 
-export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 720 }: TradingViewChartProps) {
+export function TradingViewChart({ symbol, exchange = 'BINANCE' }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useId().replace(/:/g, '');
+  const [height, setHeight] = useState(560);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const next = Math.max(480, Math.floor(entry.contentRect.width * 0.56));
+      setHeight(Math.min(next, 900));
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -20,7 +35,7 @@ export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 720 }:
 
     const widgetDiv = document.createElement('div');
     widgetDiv.className = 'tradingview-widget-container__widget';
-    widgetDiv.style.height = '100%';
+    widgetDiv.style.height = `${height}px`;
     widgetDiv.style.width = '100%';
     el.appendChild(widgetDiv);
 
@@ -30,6 +45,8 @@ export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 720 }:
     script.async = true;
     script.innerHTML = JSON.stringify({
       autosize: true,
+      width: '100%',
+      height: height,
       symbol: `${exchange}:${symbol}`,
       interval: '60',
       timezone: 'Etc/UTC',
@@ -49,13 +66,13 @@ export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 720 }:
     return () => {
       el.innerHTML = '';
     };
-  }, [symbol, exchange, widgetId]);
+  }, [symbol, exchange, widgetId, height]);
 
   return (
     <div
       ref={containerRef}
-      className="tradingview-widget-container w-full rounded-xl overflow-hidden border border-white/[0.06] min-h-[480px]"
-      style={{ height }}
+      className="tradingview-widget-container w-full rounded-xl overflow-hidden border border-white/[0.06]"
+      style={{ minHeight: 480, height }}
     />
   );
 }

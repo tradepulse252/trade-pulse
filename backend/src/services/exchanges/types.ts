@@ -9,8 +9,22 @@ export type ExchangeId =
   | 'kraken';
 export type MarketType = 'cex' | 'dex';
 
+export interface GrowthTfRow {
+  priceChangePct: number;
+  oiChangePct: number;
+  volumeChangePct: number;
+}
+
+export interface FlowTimeframeRow {
+  inflow: number;
+  outflow: number;
+  netInflow: number;
+  netChgPct: number;
+  netInflowMcap: number;
+}
+
 export interface VenueSnapshot {
-  exchange: ExchangeId;
+  exchange: ExchangeId | string;
   marketType: MarketType;
   symbol: string;
   baseAsset: string;
@@ -39,9 +53,11 @@ export interface AggregatedMarket {
   opportunityScore: number;
   rank?: number;
   venueCount: number;
-  exchanges: ExchangeId[];
+  exchanges: (ExchangeId | string)[];
   venues: VenueSnapshot[];
-  growthMatrix: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
+  growthMatrix: Record<string, GrowthTfRow>;
+  flowMatrix?: Record<string, FlowTimeframeRow>;
+  dataSources?: string[];
   signalConditions?: {
     highOi: boolean;
     highVolume: boolean;
@@ -58,5 +74,5 @@ export interface GainerLoser {
   priceChange24h: number;
   totalVolumeUsdt: number;
   marketCap: number;
-  exchanges: ExchangeId[];
+  exchanges: (ExchangeId | string)[];
 }
