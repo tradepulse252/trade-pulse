@@ -8,7 +8,7 @@ import type { AggregatedMarket } from '@/lib/api';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
 import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
 import { FLOW_TIMEFRAMES } from '@/lib/flow';
-import { getTfMetric } from '@/lib/metrics';
+import { changeUsdFromPct } from '@/lib/metrics';
 import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
@@ -155,14 +155,8 @@ export default function SignalsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((s, i) => {
-                    const h24 = getTfMetric(
-                      s.growthMatrix,
-                      '24h',
-                      s.totalOpenInterest,
-                      s.totalVolumeUsdt,
-                      s.oiChangePct,
-                      s.volumeChangePct
-                    );
+                    const oiUsd = changeUsdFromPct(s.totalOpenInterest, s.oiChangePct);
+                    const volUsd = changeUsdFromPct(s.totalVolumeUsdt, s.volumeChangePct);
                     return (
                     <tr key={s.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] align-top">
                       <td className="py-3 px-4 text-muted-foreground">{s.rank ?? i + 1}</td>
@@ -192,16 +186,16 @@ export default function SignalsPage() {
                             <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Open Interest</p>
                             <MoneyPctCell
                               totalUsd={s.totalOpenInterest}
-                              changeUsd={h24.oiChangeUsd}
-                              changePct={h24.oiChangePct}
+                              changeUsd={oiUsd}
+                              changePct={s.oiChangePct}
                             />
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
                             <MoneyPctCell
                               totalUsd={s.totalVolumeUsdt}
-                              changeUsd={h24.volumeChangeUsd}
-                              changePct={h24.volumeChangePct}
+                              changeUsd={volUsd}
+                              changePct={s.volumeChangePct}
                             />
                           </div>
                         </div>
