@@ -6,6 +6,7 @@ import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter
 import { fetchBybitVenues } from './bybit-adapter';
 import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
+import { fetchAsterVenues } from './aster-adapter';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
 import { broadcastMarkets } from '../websocket/ws-broadcast';
@@ -260,6 +261,7 @@ class AggregationService {
         { name: 'bybit', fn: fetchBybitVenues },
         { name: 'okx', fn: fetchOkxVenues },
         { name: 'hyperliquid', fn: fetchHyperliquidVenues },
+        { name: 'aster', fn: fetchAsterVenues },
       ];
 
       const allVenues: VenueSnapshot[] = [];

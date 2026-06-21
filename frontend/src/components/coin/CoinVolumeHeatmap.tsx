@@ -1,22 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { VenueSnapshot } from '@/lib/api';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatNumber, formatPct } from '@/lib/utils';
 
 const EXCHANGE_LABELS: Record<string, string> = {
   binance: 'Binance',
   bybit: 'Bybit',
   okx: 'OKX',
   hyperliquid: 'Hyperliquid',
+  aster: 'Aster',
 };
 
-const EXCHANGE_COLORS: Record<string, string> = {
-  binance: 'rgba(243, 186, 47, 0.85)',
-  bybit: 'rgba(247, 166, 0, 0.8)',
-  okx: 'rgba(255, 255, 255, 0.75)',
-  hyperliquid: 'rgba(168, 85, 247, 0.8)',
-};
+function heatColor(changePct: number, intensity: number): string {
+  const alpha = 0.45 + Math.min(intensity, 0.5);
+  if (changePct >= 0) {
+    return `rgba(0, 192, 118, ${alpha})`;
+  }
+  return `rgba(246, 70, 93, ${alpha})`;
+}
 
 interface CoinVolumeHeatmapProps {
   venues: VenueSnapshot[];
@@ -25,11 +27,25 @@ interface CoinVolumeHeatmapProps {
 
 export function CoinVolumeHeatmap({ venues, title }: CoinVolumeHeatmapProps) {
   const [mode, setMode] = useState<'futures' | 'spot'>('futures');
-  const sorted = [...venues].sort((a, b) => b.volumeUsdt - a.volumeUsdt);
+
+  const filtered = useMemo(() => {
+    const list = [...venues];
+    if (mode === 'spot') {
+      return list.filter((v) => v.marketType === 'cex');
+    }
+    return list;
+  }, [venues, mode]);
+
+  const sorted = [...filtered].sort((a, b) => b.volumeUsdt - a.volumeUsdt);
   const total = sorted.reduce((s, v) => s + v.volumeUsdt, 0);
 
   if (sorted.length === 0) {
-    return null;
+    return (
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <p className="text-xs text-muted-foreground py-6 text-center">No venue data for this mode</p>
+      </div>
+    );
   }
 
   return (
@@ -64,25 +80,38 @@ export function CoinVolumeHeatmap({ venues, title }: CoinVolumeHeatmapProps) {
         {sorted.map((v, i) => {
           const share = total > 0 ? v.volumeUsdt / total : 1 / sorted.length;
           const isLeader = i === 0;
+          const positive = v.priceChange24h >= 0;
           return (
             <div
-              key={v.exchange}
+              key={`${v.exchange}-${v.symbol}`}
               className={cn(
-                'flex flex-col justify-between p-4 text-white min-h-[100px] transition-opacity',
-                isLeader && 'col-span-2 row-span-1',
-                mode === 'spot' && v.marketType === 'dex' && 'opacity-40'
+                'flex flex-col justify-between p-4 text-white min-h-[100px]',
+                isLeader && 'col-span-2'
               )}
               style={{
-                backgroundColor: EXCHANGE_COLORS[v.exchange] ?? `rgba(239, 68, 68, ${0.35 + share * 0.55})`,
+                backgroundColor: heatColor(v.priceChange24h, share),
                 minHeight: isLeader ? 120 : 100,
               }}
             >
-              <span className="font-semibold text-sm drop-shadow-sm">
-                {EXCHANGE_LABELS[v.exchange] ?? v.exchange}
-              </span>
-              <span className="font-mono text-xl font-bold drop-shadow-sm">
-                ${formatNumber(v.volumeUsdt)}
-              </span>
+              <div>
+                <span className="font-semibold text-sm drop-shadow-sm">
+                  {EXCHANGE_LABELS[v.exchange] ?? v.exchange}
+                </span>
+                <span className="ml-1.5 text-[9px] uppercase opacity-80">{v.marketType}</span>
+              </div>
+              <div>
+                <span className="font-mono text-xl font-bold drop-shadow-sm block">
+                  ${formatNumber(v.volumeUsdt)}
+                </span>
+                <span
+                  className={cn(
+                    'font-mono text-[10px] font-medium',
+                    positive ? 'text-white/95' : 'text-white/90'
+                  )}
+                >
+                  {formatPct(v.priceChange24h)} 24h
+                </span>
+              </div>
             </div>
           );
         })}

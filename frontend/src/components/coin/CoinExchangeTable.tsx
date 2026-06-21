@@ -14,6 +14,7 @@ const EXCHANGE_LABELS: Record<string, string> = {
   bybit: 'Bybit',
   okx: 'OKX',
   hyperliquid: 'Hyperliquid',
+  aster: 'Aster',
 };
 
 function ExchangeRow({

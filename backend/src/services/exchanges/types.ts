@@ -1,4 +1,4 @@
-export type ExchangeId = 'binance' | 'bybit' | 'okx' | 'hyperliquid';
+export type ExchangeId = 'binance' | 'bybit' | 'okx' | 'hyperliquid' | 'aster';
 export type MarketType = 'cex' | 'dex';
 
 export interface VenueSnapshot {

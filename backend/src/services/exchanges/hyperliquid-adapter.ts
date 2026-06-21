@@ -33,7 +33,7 @@ export async function fetchHyperliquidVenues(): Promise<VenueSnapshot[]> {
     const openInterest = parseFloat(ctx.openInterest) || 0;
     const volumeUsdt = parseFloat(ctx.dayNtlVlm) || 0;
 
-    if (price <= 0 || volumeUsdt <= 100_000) continue;
+    if (price <= 0 || volumeUsdt <= 5_000) continue;
 
     results.push({
       exchange: 'hyperliquid',
