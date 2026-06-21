@@ -1,11 +1,11 @@
 'use client';
 
 import type { AggregatedMarket } from '@/lib/api';
-import { FLOW_TIMEFRAME_LABELS, type FlowTimeframe } from '@/lib/flow';
+import { FLOW_TIMEFRAMES, FLOW_TIMEFRAME_LABELS, type FlowTimeframe } from '@/lib/flow';
 import { getTfMetric } from '@/lib/metrics';
 import { cn, formatNumber, formatPct } from '@/lib/utils';
 
-const DEFAULT_TFS: FlowTimeframe[] = ['5m', '15m', '1h', '4h', '24h'];
+const DEFAULT_TFS: FlowTimeframe[] = [...FLOW_TIMEFRAMES];
 
 interface OiVolumeTfStripProps {
   market: Pick<
@@ -14,7 +14,7 @@ interface OiVolumeTfStripProps {
   >;
   /** Show OI row, volume row, or both per timeframe */
   mode?: 'both' | 'oi' | 'volume';
-  timeframes?: FlowTimeframe[];
+  timeframes?: readonly FlowTimeframe[];
   compact?: boolean;
 }
 
@@ -30,7 +30,7 @@ function DeltaLine({
   compact?: boolean;
 }) {
   const positive = pct >= 0;
-  const showUsd = Math.abs(usd) >= 0.01;
+  const showUsd = Math.abs(usd) >= 0.01 || pct !== 0;
 
   return (
     <div className={cn('tabular-nums', positive ? 'text-long' : 'text-short', compact ? 'text-[8px]' : 'text-[9px]')}>

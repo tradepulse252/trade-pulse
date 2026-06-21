@@ -7,6 +7,7 @@ import { getSignals } from '@/lib/api';
 import type { AggregatedMarket } from '@/lib/api';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
 import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
+import { FLOW_TIMEFRAMES } from '@/lib/flow';
 import { getTfMetric } from '@/lib/metrics';
 import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
@@ -147,17 +148,16 @@ export default function SignalsPage() {
                     <th className="text-left py-3 px-4">Signal</th>
                     <th className="text-left py-3 px-4">Conditions</th>
                     <th className="text-right py-3 px-4">Score</th>
-                    <th className="text-right py-3 px-4 min-w-[130px]">Open Interest</th>
-                    <th className="text-right py-3 px-4 min-w-[130px]">Volume</th>
+                    <th className="text-right py-3 px-4 min-w-[420px]">Open Interest & Volume (USDT)</th>
                     <th className="text-right py-3 px-4">Funding</th>
                     <th className="text-right py-3 px-4 pr-4">24h</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((s, i) => {
-                    const h1 = getTfMetric(
+                    const h24 = getTfMetric(
                       s.growthMatrix,
-                      '1h',
+                      '24h',
                       s.totalOpenInterest,
                       s.totalVolumeUsdt,
                       s.oiChangePct,
@@ -186,24 +186,32 @@ export default function SignalsPage() {
                       <td className="py-3 px-4 text-right font-mono text-primary font-semibold">
                         {s.opportunityScore.toFixed(1)}
                       </td>
-                      <td className="py-3 px-4 text-right min-w-[140px]">
-                        <MoneyPctCell
-                          totalUsd={s.totalOpenInterest}
-                          changeUsd={h1.oiChangeUsd}
-                          changePct={h1.oiChangePct}
-                        />
-                        <div className="mt-1.5">
-                          <OiVolumeTfStrip market={s} mode="oi" compact />
+                      <td className="py-3 px-4 min-w-[420px]">
+                        <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Open Interest</p>
+                            <MoneyPctCell
+                              totalUsd={s.totalOpenInterest}
+                              changeUsd={h24.oiChangeUsd}
+                              changePct={h24.oiChangePct}
+                            />
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
+                            <MoneyPctCell
+                              totalUsd={s.totalVolumeUsdt}
+                              changeUsd={h24.volumeChangeUsd}
+                              changePct={h24.volumeChangePct}
+                            />
+                          </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-right min-w-[140px]">
-                        <MoneyPctCell
-                          totalUsd={s.totalVolumeUsdt}
-                          changeUsd={h1.volumeChangeUsd}
-                          changePct={h1.volumeChangePct}
-                        />
-                        <div className="mt-1.5">
-                          <OiVolumeTfStrip market={s} mode="volume" compact />
+                        <div className="overflow-x-auto pb-1">
+                          <div className="min-w-[560px]">
+                            <p className="text-[10px] text-muted-foreground mb-1 text-right">
+                              All timeframes — $ change and %
+                            </p>
+                            <OiVolumeTfStrip market={s} mode="both" timeframes={FLOW_TIMEFRAMES} compact />
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>

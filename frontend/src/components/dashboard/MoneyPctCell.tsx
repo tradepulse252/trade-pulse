@@ -23,7 +23,7 @@ export function MoneyPctCell({
 }: MoneyPctCellProps) {
   const positive = changePct >= 0;
   const deltaUsd = changeUsd ?? 0;
-  const showDeltaUsd = Math.abs(deltaUsd) >= 0.01;
+  const showDeltaUsd = totalUsd !== undefined && totalUsd > 0 && changePct !== 0;
 
   return (
     <div className={cn('text-right leading-tight', className)}>
