@@ -3,54 +3,25 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
-import { OpportunityFilters } from '@/components/dashboard/OpportunityFilters';
-import { SortControls } from '@/components/dashboard/SortControls';
 import { AggregatedMarketsTable } from '@/components/dashboard/AggregatedMarketsTable';
 import { AggregatedTrendingCard } from '@/components/dashboard/AggregatedTrendingCard';
 import { GainersLosersPanel } from '@/components/dashboard/GainersLosersPanel';
 import { InsightStatCard } from '@/components/dashboard/InsightStatCard';
-import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
 import { useAggregatedMarkets } from '@/hooks/useAggregatedMarkets';
 import { useOpportunities } from '@/hooks/useOpportunities';
-import { applyAggregatedFilters } from '@/lib/filters';
 import { cn } from '@/lib/utils';
 import { ArrowRight, RefreshCw, TrendingUp, Zap, Target } from 'lucide-react';
-import type { MarketSort } from '@/lib/api';
-import type { TimeframeKey } from '@/lib/sorting';
-
-const SORT_OPTIONS: { value: MarketSort; label: string }[] = [
-  { value: 'marketCap', label: 'Market Cap' },
-  { value: 'volume', label: 'Total Volume' },
-  { value: 'openInterest', label: 'Open Interest' },
-  { value: 'funding', label: 'Funding Rate' },
-  { value: 'score', label: 'Opportunity Score' },
-];
 
 export default function DashboardPage() {
-  const [sort, setSort] = useState<MarketSort>('marketCap');
-  const [metricTimeframe, setMetricTimeframe] = useState<TimeframeKey>('1h');
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { markets, gainers, losers, loading, error, refetch, liveConnected } = useAggregatedMarkets(sort);
-  const { connected, filters, setFilters, sortBy, setSortBy, sortOrder, setSortOrder, timeframe, setTimeframe } =
-    useOpportunities({ limit: 50 });
+  const { markets, gainers, losers, loading, error, refetch, liveConnected } = useAggregatedMarkets('marketCap');
+  const { connected } = useOpportunities({ limit: 50 });
 
-  const filteredMarkets = useMemo(() => {
-    const filtered = applyAggregatedFilters(markets, filters);
-    if (sort === 'marketCap') {
-      return [...filtered].sort((a, b) => b.marketCap - a.marketCap || b.totalVolumeUsdt - a.totalVolumeUsdt);
-    }
-    return filtered;
-  }, [markets, filters, sort]);
-
-  const trendingTop = useMemo(
-    () =>
-      [...filteredMarkets]
-        .sort((a, b) => b.opportunityScore - a.opportunityScore)
-        .slice(0, 5),
-    [filteredMarkets]
+  const topByMarketCap = useMemo(
+    () => [...markets].sort((a, b) => b.marketCap - a.marketCap).slice(0, 5),
+    [markets]
   );
 
   const strongLongs = markets.filter((m) => m.signalType === 'STRONG_LONG').length;
@@ -70,10 +41,8 @@ export default function DashboardPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="section-title">Trending Opportunities</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Aggregated from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX)
-              </p>
+              <h2 className="section-title">Top by Market Cap</h2>
+              <p className="text-xs text-muted-foreground mt-1">Largest cryptocurrencies by market capitalization</p>
             </div>
             <button
               type="button"
@@ -85,13 +54,11 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {loading && trendingTop.length === 0
+            {loading && topByMarketCap.length === 0
               ? Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="glass-card h-[140px] animate-pulse bg-white/[0.02]" />
+                  <div key={i} className="glass-card h-[120px] animate-pulse bg-white/[0.02]" />
                 ))
-              : trendingTop.map((m) => (
-                  <AggregatedTrendingCard key={m.symbol} market={m} timeframe={metricTimeframe} />
-                ))}
+              : topByMarketCap.map((m) => <AggregatedTrendingCard key={m.symbol} market={m} />)}
           </div>
         </section>
 
@@ -100,7 +67,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="section-title">Market Insights</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                Live from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX) · calculated on receive, not stored
+                All cryptocurrencies sorted by market cap · CoinGecko / CoinMarketCap style
                 {liveConnected && (
                   <span className="ml-2 inline-flex items-center gap-1 text-long">
                     <span className="h-1.5 w-1.5 rounded-full bg-long animate-pulse" />
@@ -109,53 +76,18 @@ export default function DashboardPage() {
                 )}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <TimeframeNav
-                value={metricTimeframe}
-                onChange={(t) => setMetricTimeframe(t)}
-              />
-              <div className="flex flex-wrap items-center gap-2">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSort(opt.value)}
-                  className={cn('pill-tab text-xs', sort === opt.value && 'pill-tab-active')}
-                >
-                  {opt.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((v) => !v)}
-                className={cn('pill-tab text-xs', filtersOpen && 'pill-tab-active')}
-              >
-                Advanced Filters
-              </button>
-              <button type="button" onClick={handleRefresh} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-white/[0.05]">
-                <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
-              </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-white/[0.05]"
+            >
+              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+            </button>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
             <div className="glass-card overflow-hidden min-w-0">
-              {filtersOpen && (
-                <>
-                  <OpportunityFilters filters={filters} onChange={setFilters} alwaysOpen />
-                  <SortControls
-                    sortBy={sortBy}
-                    sortOrder={sortOrder}
-                    timeframe={timeframe}
-                    onSortByChange={setSortBy}
-                    onSortOrderChange={setSortOrder}
-                    onTimeframeChange={setTimeframe}
-                  />
-                </>
-              )}
-
-              {error && filteredMarkets.length === 0 && !loading ? (
+              {error && markets.length === 0 && !loading ? (
                 <div className="p-10 text-center space-y-3">
                   <p className="text-short font-medium">Cannot reach backend API</p>
                   <p className="text-sm text-muted-foreground">
@@ -163,12 +95,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                <AggregatedMarketsTable
-                  markets={filteredMarkets}
-                  loading={loading}
-                  search={search}
-                  timeframe={metricTimeframe}
-                />
+                <AggregatedMarketsTable markets={markets} loading={loading} search={search} />
               )}
             </div>
 
@@ -179,7 +106,10 @@ export default function DashboardPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title">Signal Insights</h2>
-            <Link href="/signals" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-xl hover:bg-white/[0.05]">
+            <Link
+              href="/signals"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-xl hover:bg-white/[0.05]"
+            >
               View Signals <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

@@ -2,66 +2,54 @@
 
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
-import type { FlowTimeframe } from '@/lib/flow';
-import { cn, formatFunding, formatNumber, formatPct, getSignalLabel } from '@/lib/utils';
-import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
+import { cn, formatNumber, formatPct, formatPrice } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
-
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { LivePrice } from '@/components/dashboard/LivePrice';
-import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
-import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
-import { getTfMetric } from '@/lib/metrics';
-import type { TimeframeKey } from '@/lib/sorting';
-import { getTimeframeLabel } from '@/lib/sorting';
 
 interface AggregatedMarketsTableProps {
   markets: AggregatedMarket[];
   loading?: boolean;
   search?: string;
-  timeframe?: TimeframeKey;
-  onTimeframeChange?: (tf: TimeframeKey) => void;
 }
 
-function PctCell({ value }: { value: number }) {
+function ChangeCell({ value }: { value: number }) {
+  const positive = value >= 0;
   return (
-    <span className={cn('tabular-nums font-medium', value >= 0 ? 'text-long' : 'text-short')}>
+    <span
+      className={cn(
+        'inline-flex items-center justify-end min-w-[72px] rounded-md px-2 py-1 text-xs font-semibold tabular-nums',
+        positive ? 'bg-long/10 text-long' : 'bg-short/10 text-short'
+      )}
+    >
       {formatPct(value)}
     </span>
   );
 }
 
-export function AggregatedMarketsTable({
-  markets,
-  loading,
-  search,
-  timeframe = '1h',
-  onTimeframeChange,
-}: AggregatedMarketsTableProps) {
-  const tf = timeframe as FlowTimeframe;
-  const tfLabel = getTimeframeLabel(timeframe);
-
-  const filtered = search
-    ? markets.filter(
-        (m) =>
-          m.baseAsset.includes(search.toUpperCase()) ||
+export function AggregatedMarketsTable({ markets, loading, search }: AggregatedMarketsTableProps) {
+  const ranked = [...markets]
+    .filter((m) =>
+      search
+        ? m.baseAsset.toUpperCase().includes(search.toUpperCase()) ||
           m.symbol.toUpperCase().includes(search.toUpperCase())
-      )
-    : markets;
+        : true
+    )
+    .sort((a, b) => b.marketCap - a.marketCap || b.priceChange24h - a.priceChange24h);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-80 text-muted-foreground gap-3">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="text-sm">Loading live market data…</p>
+        <p className="text-sm">Loading cryptocurrencies…</p>
       </div>
     );
   }
 
-  if (filtered.length === 0) {
+  if (ranked.length === 0) {
     return (
       <div className="flex items-center justify-center h-80 text-muted-foreground">
-        <p className="text-sm">No markets match your search</p>
+        <p className="text-sm">No coins match your search</p>
       </div>
     );
   }
@@ -70,90 +58,48 @@ export function AggregatedMarketsTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/[0.06] text-muted-foreground text-xs">
-            <th className="text-left py-3.5 px-4 font-medium w-12">#</th>
-            <th className="text-left py-3.5 px-4 font-medium">Name</th>
-            <th className="text-right py-3.5 px-4 font-medium">Market Cap</th>
+          <tr className="border-b border-white/[0.06] text-muted-foreground text-xs uppercase tracking-wide">
+            <th className="text-left py-3.5 px-4 font-medium w-14">#</th>
+            <th className="text-left py-3.5 px-4 font-medium min-w-[200px]">Name</th>
             <th className="text-right py-3.5 px-4 font-medium">Price</th>
-            <th className="text-right py-3.5 px-4 font-medium">24h</th>
-            <th className="text-right py-3.5 px-4 font-medium min-w-[280px]">
-              OI & Volume <span className="text-primary/80">({tfLabel})</span>
-            </th>
-            <th className="text-right py-3.5 px-4 font-medium">Avg Funding</th>
-            <th className="text-right py-3.5 px-4 font-medium">Exchanges</th>
-            <th className="text-right py-3.5 px-4 font-medium pr-5">Score</th>
+            <th className="text-right py-3.5 px-4 font-medium">24h %</th>
+            <th className="text-right py-3.5 px-4 font-medium pr-5">Market Cap</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((m, idx) => {
-            const sparkValues = getOpportunitySparkline(m.growthMatrix, m.priceChange24h);
-            const tfMetric = getTfMetric(
-              m.growthMatrix,
-              tf,
-              m.totalOpenInterest,
-              m.totalVolumeUsdt,
-              m.oiChangePct,
-              m.volumeChangePct
-            );
-            return (
-              <tr key={m.symbol} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors align-top">
-                <td className="py-4 px-4 text-muted-foreground tabular-nums">{m.rank ?? idx + 1}</td>
-                <td className="py-4 px-4">
-                  <Link href={`/coin/${m.symbol}`} className="flex items-center gap-3">
-                    <CoinLogo baseAsset={m.baseAsset} iconUrl={m.iconUrl} size={32} />
-                    <div>
-                      <p className="font-medium text-foreground">{m.baseAsset}</p>
-                      <p className="text-xs text-muted-foreground">{getSignalLabel(m.signalType)}</p>
-                    </div>
-                  </Link>
-                </td>
-                <td className="py-4 px-4 text-right data-cell text-muted-foreground">
-                  {Number(m.marketCap) > 0 ? `$${formatNumber(Number(m.marketCap))}` : '—'}
-                </td>
-                <td className="py-4 px-4 text-right data-cell">
-                  <LivePrice price={m.price} />
-                </td>
-                <td className="py-4 px-4 text-right"><PctCell value={m.priceChange24h} /></td>
-                <td className="py-4 px-4 min-w-[280px]">
-                  <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Open Interest</p>
-                      <MoneyPctCell
-                        totalUsd={m.totalOpenInterest}
-                        changeUsd={tfMetric.oiChangeUsd}
-                        changePct={tfMetric.oiChangePct}
-                      />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
-                      <MoneyPctCell
-                        totalUsd={m.totalVolumeUsdt}
-                        changeUsd={tfMetric.volumeChangeUsd}
-                        changePct={tfMetric.volumeChangePct}
-                      />
-                    </div>
+          {ranked.map((m, idx) => (
+            <tr
+              key={m.symbol}
+              className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors"
+            >
+              <td className="py-3.5 px-4 text-muted-foreground tabular-nums text-xs">{idx + 1}</td>
+              <td className="py-3.5 px-4">
+                <Link href={`/coin/${m.symbol}`} className="flex items-center gap-3 group">
+                  <CoinLogo baseAsset={m.baseAsset} iconUrl={m.iconUrl} size={36} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {m.baseAsset}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{m.symbol}</p>
                   </div>
-                  {onTimeframeChange && (
-                    <TimeframeNav value={tf} onChange={(t) => onTimeframeChange(t as TimeframeKey)} />
-                  )}
-                </td>
-                <td className="py-4 px-4 text-right data-cell">{formatFunding(m.avgFundingRate)}</td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-xs text-muted-foreground">{m.venueCount} ({m.exchanges.join(', ')})</span>
-                </td>
-                <td className="py-4 px-4 pr-5 text-right">
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="inline-flex rounded-lg bg-primary/15 border border-primary/25 px-2 py-0.5 text-xs font-mono text-primary">
-                      {m.opportunityScore.toFixed(1)}
-                    </span>
-                    <Sparkline values={sparkValues} width={72} height={24} filled={false} positive={m.priceChange24h >= 0} />
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
+                </Link>
+              </td>
+              <td className="py-3.5 px-4 text-right">
+                <LivePrice price={m.price} className="font-medium text-foreground" />
+              </td>
+              <td className="py-3.5 px-4 text-right">
+                <ChangeCell value={m.priceChange24h} />
+              </td>
+              <td className="py-3.5 px-4 pr-5 text-right font-medium text-foreground tabular-nums">
+                {Number(m.marketCap) > 0 ? `$${formatNumber(Number(m.marketCap))}` : '—'}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      <p className="text-[10px] text-muted-foreground px-4 py-3 border-t border-white/[0.04]">
+        {ranked.length} cryptocurrencies · sorted by market cap · data from CoinGecko + live exchange prices
+      </p>
     </div>
   );
 }
