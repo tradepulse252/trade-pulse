@@ -25,19 +25,12 @@ const CG_MARKET_TO_EXCHANGE: Record<string, ExchangeId> = {
 
 const DEX_EXCHANGES = new Set<ExchangeId>(['hyperliquid', 'aster']);
 
-export async function fetchCoinGeckoDerivativeVenues(
-  exchangeFilter?: ExchangeId[]
-): Promise<VenueSnapshot[]> {
-  const res = await fetch('https://api.coingecko.com/api/v3/derivatives?include_tickers=unexpired', {
-    signal: AbortSignal.timeout(25_000),
-    headers: { Accept: 'application/json', 'User-Agent': 'TradePulse/1.0' },
-  });
-  if (!res.ok) throw new Error(`CoinGecko derivatives ${res.status}`);
+const CACHE_MS = 2 * 60 * 1000;
+let venueCache: { venues: VenueSnapshot[]; expires: number } | null = null;
 
-  const tickers = (await res.json()) as CgDerivativeTicker[];
+function mapTickers(tickers: CgDerivativeTicker[], exchangeFilter?: ExchangeId[]): VenueSnapshot[] {
   const now = Date.now();
   const allowed = exchangeFilter ? new Set(exchangeFilter) : null;
-
   const venues: VenueSnapshot[] = [];
 
   for (const t of tickers) {
@@ -63,6 +56,30 @@ export async function fetchCoinGeckoDerivativeVenues(
       timestamp: now,
     });
   }
+
+  return venues;
+}
+
+export async function fetchCoinGeckoDerivativeVenues(
+  exchangeFilter?: ExchangeId[]
+): Promise<VenueSnapshot[]> {
+  if (venueCache && venueCache.expires > Date.now()) {
+    const cached = venueCache.venues;
+    if (!exchangeFilter) return cached;
+    const allowed = new Set(exchangeFilter);
+    return cached.filter((v) => allowed.has(v.exchange));
+  }
+
+  const res = await fetch('https://api.coingecko.com/api/v3/derivatives?include_tickers=unexpired', {
+    signal: AbortSignal.timeout(25_000),
+    headers: { Accept: 'application/json', 'User-Agent': 'TradePulse/1.0' },
+  });
+  if (!res.ok) throw new Error(`CoinGecko derivatives ${res.status}`);
+
+  const tickers = (await res.json()) as CgDerivativeTicker[];
+  const venues = mapTickers(tickers, exchangeFilter);
+
+  venueCache = { venues: mapTickers(tickers), expires: Date.now() + CACHE_MS };
 
   return venues;
 }

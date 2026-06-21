@@ -1,5 +1,6 @@
 import { SignalType } from '@prisma/client';
-import { type TimeframeKey } from '../../config/env';
+import { env, type TimeframeKey } from '../../config/env';
+import { isBinanceIpBanned } from '../binance/rest-client';
 import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
@@ -16,7 +17,6 @@ import { coinCapIconUrl } from './coin-icons';
 import { broadcastMarkets } from '../websocket/ws-broadcast';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot, ExchangeId } from './types';
 
-const REFRESH_MS = 30_000;
 const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
 const CARD_TIMEFRAMES: TimeframeKey[] = ['5m', '15m', '30m', '1h', '2h', '4h', '24h'];
 
@@ -41,11 +41,11 @@ class AggregationService {
   private assetHistory = new Map<string, AssetHistory>();
   private lastRefresh = 0;
   private refreshing = false;
-  private exchangeStatus: Record<string, 'ok' | 'error'> = {};
+  private exchangeStatus: Record<string, 'ok' | 'error' | 'rate-limited' | 'aggregator'> = {};
 
   start() {
     void this.refresh();
-    setInterval(() => void this.refresh(), REFRESH_MS);
+    setInterval(() => void this.refresh(), env.AGGREGATION_REFRESH_MS);
   }
 
   getMarkets(): AggregatedMarket[] {
@@ -269,13 +269,35 @@ class AggregationService {
     return [...map.values()];
   }
 
+  private lastBinanceSource: 'direct' | 'aggregator' | 'rate-limited' = 'direct';
+
+  private async fetchBinanceVenuesWithFallback(): Promise<VenueSnapshot[]> {
+    if (isBinanceIpBanned()) {
+      this.lastBinanceSource = 'rate-limited';
+      return fetchCoinGeckoDerivativeVenues(['binance']);
+    }
+
+    try {
+      const venues = await enrichBinanceOpenInterest(await fetchBinanceVenues());
+      if (venues.length > 0) {
+        this.lastBinanceSource = 'direct';
+        return venues;
+      }
+    } catch {
+      // fall through to aggregator
+    }
+
+    this.lastBinanceSource = 'aggregator';
+    return fetchCoinGeckoDerivativeVenues(['binance']);
+  }
+
   async refresh() {
     if (this.refreshing) return;
     this.refreshing = true;
 
     try {
       const fetchers: { name: ExchangeId; fn: () => Promise<VenueSnapshot[]> }[] = [
-        { name: 'binance', fn: async () => enrichBinanceOpenInterest(await fetchBinanceVenues()) },
+        { name: 'binance', fn: () => this.fetchBinanceVenuesWithFallback() },
         { name: 'bybit', fn: fetchBybitVenues },
         { name: 'okx', fn: fetchOkxVenues },
         { name: 'hyperliquid', fn: fetchHyperliquidVenues },
@@ -293,7 +315,12 @@ class AggregationService {
           try {
             const data = await fn();
             allVenues.push(...data);
-            this.exchangeStatus[name] = 'ok';
+            if (name === 'binance') {
+              this.exchangeStatus.binance =
+                this.lastBinanceSource === 'direct' ? 'ok' : this.lastBinanceSource;
+            } else {
+              this.exchangeStatus[name] = 'ok';
+            }
           } catch {
             this.exchangeStatus[name] = 'error';
             failed.push(name);

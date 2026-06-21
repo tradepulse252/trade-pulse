@@ -14,10 +14,20 @@ const envSchema = z.object({
   BINANCE_API_SECRET: z.string().optional(),
   BINANCE_REST_BASE: z.string().default('https://fapi.binance.com'),
   BINANCE_WS_BASE: z.string().default('wss://fstream.binance.com'),
+  /** Poll aggregated markets (all exchanges) — keep ≥60s on cloud to avoid rate limits */
+  AGGREGATION_REFRESH_MS: z.coerce.number().default(90_000),
+  /** REST fallback when Binance WebSocket is stale — keep ≥60s on cloud */
+  BINANCE_REST_FALLBACK_MS: z.coerce.number().default(120_000),
+  /** Per-symbol OI batch calls are heavy — off by default on cloud (CoinGecko fills OI) */
+  BINANCE_ENABLE_OI_BATCH: z
+    .enum(['true', 'false'])
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true'),
   MIN_VOLUME_USDT: z.coerce.number().default(1_000_000),
   MIN_OPEN_INTEREST_USDT: z.coerce.number().default(500_000),
-  SCORING_INTERVAL_MS: z.coerce.number().default(5000),
-  OI_REFRESH_INTERVAL_MS: z.coerce.number().default(60_000),
+  SCORING_INTERVAL_MS: z.coerce.number().default(10_000),
+  OI_REFRESH_INTERVAL_MS: z.coerce.number().default(300_000),
   METRICS_RETENTION_DAYS: z.coerce.number().default(30),
   OI_SPIKE_THRESHOLD_PCT: z.coerce.number().default(5),
   VOLUME_SPIKE_THRESHOLD_PCT: z.coerce.number().default(10),

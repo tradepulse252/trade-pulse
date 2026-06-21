@@ -52,16 +52,23 @@ class IngestionService {
       console.warn('[ingestion] Symbol sync skipped:', (error as Error).message);
     }
 
-    try {
-      await this.initialDataLoad();
-    } catch (error) {
-      console.warn('[ingestion] Initial REST load skipped:', (error as Error).message);
-    }
+    const { isBinanceIpBanned } = await import('../binance/rest-client');
+    if (!isBinanceIpBanned()) {
+      try {
+        await this.initialDataLoad();
+      } catch (error) {
+        console.warn('[ingestion] Initial REST load skipped:', (error as Error).message);
+      }
 
-    try {
-      await this.refreshOpenInterest();
-    } catch (error) {
-      console.warn('[ingestion] OI refresh skipped:', (error as Error).message);
+      if (env.BINANCE_ENABLE_OI_BATCH) {
+        try {
+          await this.refreshOpenInterest();
+        } catch (error) {
+          console.warn('[ingestion] OI refresh skipped:', (error as Error).message);
+        }
+      }
+    } else {
+      console.warn('[ingestion] Binance REST skipped — IP rate-limited (WebSocket + aggregators active)');
     }
 
     try {
@@ -71,7 +78,9 @@ class IngestionService {
     }
 
     this.scoringTimer = setInterval(() => this.runScoringCycle(), env.SCORING_INTERVAL_MS);
-    this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
+    if (env.BINANCE_ENABLE_OI_BATCH) {
+      this.oiRefreshTimer = setInterval(() => this.refreshOpenInterest(), env.OI_REFRESH_INTERVAL_MS);
+    }
     this.isRunning = true;
     console.log(`[ingestion] Live — tracking ${this.symbolIdMap.size} symbols from Binance`);
     this.starting = false;
@@ -94,10 +103,13 @@ class IngestionService {
       if (!binanceWs.isReceiving) {
         void this.pollRestMarketData();
       }
-    }, 10_000);
+    }, env.BINANCE_REST_FALLBACK_MS);
   }
 
   private async pollRestMarketData(): Promise<void> {
+    const { isBinanceIpBanned } = await import('../binance/rest-client');
+    if (isBinanceIpBanned()) return;
+
     try {
       const [tickers, markPrices] = await Promise.all([get24hTickers(), getPremiumIndex()]);
       const markMap = new Map(markPrices.map((m) => [m.symbol, m]));
@@ -246,6 +258,12 @@ class IngestionService {
   }
 
   private async syncSymbols(): Promise<void> {
+    const { isBinanceIpBanned } = await import('../binance/rest-client');
+    if (isBinanceIpBanned()) {
+      console.warn('[ingestion] Symbol sync skipped — Binance IP rate-limited');
+      return;
+    }
+
     const [exchangeInfo, tickers] = await Promise.all([getExchangeInfo(), get24hTickers()]);
     const tickerMap = new Map(tickers.map((t) => [t.symbol, t]));
 
@@ -322,6 +340,8 @@ class IngestionService {
   }
 
   private async refreshOpenInterest(): Promise<void> {
+    if (!env.BINANCE_ENABLE_OI_BATCH) return;
+
     const symbols = Array.from(this.symbolIdMap.keys())
       .map((symbol) => ({ symbol, volume: this.marketData.get(symbol)?.volumeUsdt ?? 0 }))
       .sort((a, b) => b.volume - a.volume)

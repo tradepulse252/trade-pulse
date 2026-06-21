@@ -10,7 +10,7 @@ import type {
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 /** Conservative cap — Binance bans IPs (418) after sustained 429s */
-const MAX_REQUESTS_PER_MINUTE = 180;
+const MAX_REQUESTS_PER_MINUTE = 60;
 const MIN_REQUEST_INTERVAL_MS = 120;
 const IP_BAN_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -21,6 +21,12 @@ let requestChain: Promise<void> = Promise.resolve();
 
 export function isBinanceIpBanned(): boolean {
   return Date.now() < ipBannedUntil;
+}
+
+/** Called when a direct (non-rest-client) fetch receives 418/429 */
+export function markBinanceIpBanned(retryAfterSeconds = 3600): void {
+  const ms = Math.max(retryAfterSeconds, 120) * 1000;
+  ipBannedUntil = Math.max(ipBannedUntil, Date.now() + ms);
 }
 
 export function getBinanceBanRemainingMs(): number {
@@ -85,7 +91,8 @@ async function binanceFetch<T>(endpoint: string, retries = 3): Promise<T> {
         const response = await fetch(url, { headers });
 
         if (response.status === 418) {
-          ipBannedUntil = Date.now() + IP_BAN_COOLDOWN_MS;
+          const retryAfter = parseInt(response.headers.get('Retry-After') ?? '3600', 10);
+          markBinanceIpBanned(retryAfter);
           throw binanceBanError();
         }
 
@@ -93,7 +100,7 @@ async function binanceFetch<T>(endpoint: string, retries = 3): Promise<T> {
           const retryAfter = parseInt(response.headers.get('Retry-After') ?? '10', 10);
           await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
           if (attempt === retries) {
-            ipBannedUntil = Date.now() + 15 * 60 * 1000;
+            markBinanceIpBanned(15 * 60);
             throw new Error('Binance rate limit exceeded. Please wait a few minutes.');
           }
           continue;
