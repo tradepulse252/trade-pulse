@@ -62,3 +62,21 @@ export function getFlowMetrics(
     direction: getFlowDirection(netPct),
   };
 }
+
+/** CoinGlass-style flow row: Inflow | Outflow | Net Inflow | Net Chg % | Net Inflow/MCap */
+export function getCoinGlassFlowRow(
+  market: Pick<
+    AggregatedMarket,
+    'growthMatrix' | 'totalOpenInterest' | 'totalVolumeUsdt' | 'oiChangePct' | 'volumeChangePct' | 'marketCap'
+  >,
+  timeframe: FlowTimeframe
+) {
+  const { oiUsd, volUsd, oiPct, volPct } = getFlowMetrics(market, timeframe);
+  const inflow = (oiUsd > 0 ? oiUsd : 0) + (volUsd > 0 ? volUsd : 0);
+  const outflow = (oiUsd < 0 ? -oiUsd : 0) + (volUsd < 0 ? -volUsd : 0);
+  const netInflow = oiUsd + volUsd;
+  const netChgPct = (oiPct + volPct) / 2;
+  const netInflowMcap = market.marketCap > 0 ? (netInflow / market.marketCap) * 100 : 0;
+
+  return { inflow, outflow, netInflow, netChgPct, netInflowMcap, oiUsd, volUsd };
+}

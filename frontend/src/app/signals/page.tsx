@@ -179,7 +179,7 @@ export default function SignalsPage() {
                         <td className="py-3 px-4 text-muted-foreground">{s.rank ?? i + 1}</td>
                         <td className="py-3 px-4">
                           <Link
-                            href={`/coin/${s.symbol}`}
+                            href={`/coin/${s.symbol}?ref=signals`}
                             className="font-semibold hover:text-primary inline-flex items-center gap-1"
                           >
                             {s.baseAsset}

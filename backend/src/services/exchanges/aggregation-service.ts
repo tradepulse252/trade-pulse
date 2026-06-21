@@ -47,6 +47,15 @@ class AggregationService {
     return this.markets;
   }
 
+  getMarketBySymbol(symbol: string): AggregatedMarket | undefined {
+    const upper = symbol.toUpperCase();
+    const withUsdt = upper.endsWith('USDT') ? upper : `${upper}USDT`;
+    return (
+      this.markets.find((m) => m.symbol === withUsdt || m.symbol === upper) ??
+      this.signals.find((m) => m.symbol === withUsdt || m.symbol === upper)
+    );
+  }
+
   /** Merge live Binance ticker prices between aggregation refreshes */
   patchLivePrice(baseAsset: string, price: number, priceChange24h?: number): void {
     if (!price || price <= 0) return;

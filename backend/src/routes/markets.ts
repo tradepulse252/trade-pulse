@@ -52,4 +52,18 @@ router.get('/gainers-losers', (_req: Request, res: Response) => {
   });
 });
 
+router.get('/:symbol', (req: Request, res: Response) => {
+  const raw = String(req.params.symbol).toUpperCase();
+  const market = aggregationService.getMarketBySymbol(raw);
+  if (!market) {
+    res.status(404).json({ error: 'Market not found' });
+    return;
+  }
+  res.json({
+    data: market,
+    lastRefresh: aggregationService.getLastRefresh(),
+    source: 'aggregated-live',
+  });
+});
+
 export default router;

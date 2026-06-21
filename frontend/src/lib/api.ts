@@ -42,6 +42,20 @@ export interface AggregatedMarket {
     matchCount: number;
     fundingBand: string;
   };
+  venues?: VenueSnapshot[];
+}
+
+export interface VenueSnapshot {
+  exchange: string;
+  marketType: 'cex' | 'dex';
+  symbol: string;
+  baseAsset: string;
+  price: number;
+  volumeUsdt: number;
+  openInterest: number;
+  fundingRate: number;
+  priceChange24h: number;
+  timestamp: number;
 }
 
 export interface GainerLoser {
@@ -211,6 +225,19 @@ export async function getGainersLosers(limit = 15): Promise<{ gainers: GainerLos
       gainers: [...mapped].sort((a, b) => b.priceChange24h - a.priceChange24h).slice(0, limit),
       losers: [...mapped].sort((a, b) => a.priceChange24h - b.priceChange24h).slice(0, limit),
     };
+  }
+}
+
+export async function getAggregatedMarket(symbol: string): Promise<AggregatedMarket | null> {
+  const normalized = symbol.toUpperCase().endsWith('USDT') ? symbol.toUpperCase() : `${symbol.toUpperCase()}USDT`;
+  try {
+    const result = await fetchApi<{ data: AggregatedMarket }>(`/markets/${normalized}`);
+    return result.data;
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (!msg.includes('404')) throw err;
+    const markets = await getAggregatedMarkets('marketCap', 1000);
+    return markets.find((m) => m.symbol === normalized) ?? null;
   }
 }
 
