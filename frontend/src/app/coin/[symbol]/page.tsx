@@ -7,6 +7,9 @@ import { AppShell } from '@/components/layout/AppShell';
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { CoinGlassFlowTable } from '@/components/coin/CoinGlassFlowTable';
 import { CoinExchangeTable } from '@/components/coin/CoinExchangeTable';
+import { CoinLiquidationPanel } from '@/components/coin/CoinLiquidationPanel';
+import { CoinVolumeHeatmap } from '@/components/coin/CoinVolumeHeatmap';
+import { TradingViewChart } from '@/components/coin/TradingViewChart';
 import { LivePrice } from '@/components/dashboard/LivePrice';
 import { getAggregatedMarket, type AggregatedMarket } from '@/lib/api';
 import { changeUsdFromPct } from '@/lib/metrics';
@@ -14,14 +17,13 @@ import { cn, formatFunding, formatNumber, formatPct, formatPrice, getSignalClass
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
 
-type TabKey = 'overview' | 'flows' | 'exchanges';
+type TabKey = 'overview' | 'flows';
 
-function StatBox({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 min-w-[140px]">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 min-w-[130px]">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">{label}</p>
       <p className="text-base font-semibold font-mono tabular-nums text-foreground">{value}</p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -30,13 +32,14 @@ export default function CoinDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const symbol = (params.symbol as string).toUpperCase();
+  const tvSymbol = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`;
   const ref = searchParams.get('ref');
   const backHref = ref === 'signals' ? '/signals' : '/';
   const backLabel = ref === 'signals' ? 'Back to Signals' : 'Back to Market';
 
   const [market, setMarket] = useState<AggregatedMarket | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('flows');
+  const [tab, setTab] = useState<TabKey>('overview');
   const { connected } = useOpportunities();
 
   useEffect(() => {
@@ -48,12 +51,6 @@ export default function CoinDetailPage() {
     const interval = setInterval(load, 30_000);
     return () => clearInterval(interval);
   }, [symbol]);
-
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'flows', label: 'Futures Flows' },
-    { key: 'exchanges', label: 'Exchanges' },
-  ];
 
   if (loading) {
     return (
@@ -81,10 +78,11 @@ export default function CoinDetailPage() {
 
   const priceDeltaUsd = changeUsdFromPct(market.price, market.priceChange24h);
   const positive = market.priceChange24h >= 0;
+  const venues = market.venues ?? [];
 
   return (
     <AppShell connected={connected}>
-      <div className="p-5 lg:p-6 max-w-[1400px] space-y-5">
+      <div className="p-5 lg:p-6 max-w-[1500px] space-y-5">
         <Link
           href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -92,7 +90,6 @@ export default function CoinDetailPage() {
           <ArrowLeft className="h-4 w-4" /> {backLabel}
         </Link>
 
-        {/* CoinGlass-style header */}
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <CoinLogo baseAsset={market.baseAsset} iconUrl={market.iconUrl} size={56} />
@@ -113,83 +110,63 @@ export default function CoinDetailPage() {
               </div>
             </div>
           </div>
-          <div className="text-right text-xs text-muted-foreground">
-            <p>Score {market.opportunityScore.toFixed(1)}</p>
-            <p className="mt-0.5">{market.venueCount} exchanges · live aggregated</p>
-          </div>
         </div>
 
-        {/* Stats bar — CoinGlass style */}
         <div className="flex flex-wrap gap-3">
-          <StatBox
-            label="Market Cap"
-            value={market.marketCap > 0 ? `$${formatNumber(market.marketCap)}` : '—'}
-          />
-          <StatBox
-            label="Open Interest"
-            value={`$${formatNumber(market.totalOpenInterest)}`}
-          />
-          <StatBox
-            label="Futures Vol (24h)"
-            value={`$${formatNumber(market.totalVolumeUsdt)}`}
-          />
+          <StatBox label="Market Cap" value={market.marketCap > 0 ? `$${formatNumber(market.marketCap)}` : '—'} />
+          <StatBox label="Open Interest" value={`$${formatNumber(market.totalOpenInterest)}`} />
+          <StatBox label="Futures Vol (24h)" value={`$${formatNumber(market.totalVolumeUsdt)}`} />
           <StatBox label="Avg Funding" value={formatFunding(market.avgFundingRate)} />
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 border-b border-white/[0.06]">
-          {tabs.map((t) => (
+          {(['overview', 'flows'] as TabKey[]).map((key) => (
             <button
-              key={t.key}
+              key={key}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => setTab(key)}
               className={cn(
-                'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
-                tab === t.key
+                'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px capitalize',
+                tab === key
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
-              {t.label}
+              {key === 'flows' ? 'Futures Flows' : 'Overview'}
             </button>
           ))}
         </div>
 
-        <div className="glass-card overflow-hidden">
-          {tab === 'overview' && (
-            <div className="p-5 space-y-6">
-              <div>
-                <h2 className="text-sm font-semibold mb-3">Aggregated Futures Flows</h2>
-                <CoinGlassFlowTable market={market} />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold mb-3">{market.baseAsset} Markets</h2>
+        {tab === 'overview' && (
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
+            <div className="space-y-4 min-w-0">
+              <div className="glass-card overflow-hidden">
                 <CoinExchangeTable market={market} />
               </div>
-            </div>
-          )}
 
-          {tab === 'flows' && (
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold">{market.baseAsset} Futures Flows</h2>
-                <p className="text-[10px] text-muted-foreground">CEX + DEX: {market.exchanges.join(', ')}</p>
+              <div className="glass-card p-4">
+                <h2 className="text-sm font-semibold mb-3">{market.baseAsset} Live Chart</h2>
+                <TradingViewChart symbol={tvSymbol} height={500} />
               </div>
-              <CoinGlassFlowTable market={market} />
-              <p className="text-[10px] text-muted-foreground mt-4 px-1">
-                Inflow / outflow derived from aggregated OI and volume changes across Binance, Bybit, OKX, and
-                Hyperliquid. Refreshes every 30s.
-              </p>
             </div>
-          )}
 
-          {tab === 'exchanges' && (
-            <div className="p-5">
-              <h2 className="text-sm font-semibold mb-4">{market.baseAsset} Markets</h2>
-              <CoinExchangeTable market={market} />
+            <div className="space-y-4">
+              <div className="glass-card p-4">
+                <CoinLiquidationPanel market={market} />
+              </div>
+              <div className="glass-card p-4">
+                <CoinVolumeHeatmap venues={venues} title={`${market.baseAsset} Volume Heatmap`} />
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {tab === 'flows' && (
+          <div className="glass-card p-5">
+            <h2 className="text-sm font-semibold mb-4">{market.baseAsset} Futures Flows</h2>
+            <CoinGlassFlowTable market={market} />
+          </div>
+        )}
       </div>
     </AppShell>
   );
