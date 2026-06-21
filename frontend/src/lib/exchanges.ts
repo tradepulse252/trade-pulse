@@ -8,6 +8,10 @@ export const EXCHANGE_LABELS: Record<string, string> = {
   coinbase: 'Coinbase',
   kraken: 'Kraken',
   coingecko: 'CoinGecko',
+  defillama: 'DefiLlama',
+  coinglass: 'CoinGlass',
+  'coinglass-flow': 'CoinGlass Flow',
+  'coinglass-pairs': 'CoinGlass Pairs',
 };
 
 export function formatExchangeList(exchanges: string[]): string {

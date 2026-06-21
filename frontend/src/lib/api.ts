@@ -45,6 +45,14 @@ export interface AggregatedMarket {
   venues?: VenueSnapshot[];
   flowMatrix?: Record<string, { inflow: number; outflow: number; netInflow: number; netChgPct: number; netInflowMcap: number }>;
   dataSources?: string[];
+  defillamaStats?: Array<{
+    exchange: string;
+    slug: string;
+    openInterestUsd: number;
+    oiChange1d: number;
+    volume24hUsd?: number;
+    volumeChange1d?: number;
+  }>;
 }
 
 export interface VenueSnapshot {

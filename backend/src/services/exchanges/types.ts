@@ -58,6 +58,14 @@ export interface AggregatedMarket {
   growthMatrix: Record<string, GrowthTfRow>;
   flowMatrix?: Record<string, FlowTimeframeRow>;
   dataSources?: string[];
+  defillamaStats?: Array<{
+    exchange: string;
+    slug: string;
+    openInterestUsd: number;
+    oiChange1d: number;
+    volume24hUsd?: number;
+    volumeChange1d?: number;
+  }>;
   signalConditions?: {
     highOi: boolean;
     highVolume: boolean;

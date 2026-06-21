@@ -19,6 +19,14 @@ import { isBinanceIpBanned } from '../binance/rest-client';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
 import { broadcastMarkets } from '../websocket/ws-broadcast';
+import {
+  enrichVenuesWithDefiLlama,
+  fetchDefiLlamaProtocolStats,
+  getDefiLlamaStatsForExchanges,
+  weightedDexOiChange,
+  weightedDexVolumeChange,
+  type DefiLlamaProtocolStats,
+} from '../defillama/service';
 import type { AggregatedMarket, GainerLoser, VenueSnapshot, ExchangeId } from './types';
 
 const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
@@ -164,6 +172,8 @@ class AggregationService {
 
   private cgCoinsCache: Map<string, ReturnType<typeof buildGrowthMatrixFromCoinMarket>> = new Map();
   private lastCgFetch = 0;
+  private defillamaStats: Map<ExchangeId, DefiLlamaProtocolStats> = new Map();
+  private defillamaVenuesEnriched = false;
 
   private async refreshCoinGlassBulk() {
     if (!env.COINGLASS_API_KEY) return;
@@ -178,6 +188,10 @@ class AggregationService {
     }
     this.lastCgFetch = now;
     this.exchangeStatus.coinglass = 'ok';
+  }
+
+  getDefiLlamaStats() {
+    return this.defillamaStats;
   }
 
   private aggregateVenues(
@@ -221,8 +235,13 @@ class AggregationService {
       const avgFundingRate = totalOi > 0 ? fundingWeightedSum / totalOi : list[0].fundingRate;
 
       const prev = this.previousSnapshots.get(baseAsset);
-      const oiChangePct = prev ? this.pctChange(totalOi, prev.totalOpenInterest) : 0;
-      const volumeChangePct = prev ? this.pctChange(totalVolume, prev.totalVolumeUsdt) : 0;
+      let oiChangePct = prev ? this.pctChange(totalOi, prev.totalOpenInterest) : 0;
+      let volumeChangePct = prev ? this.pctChange(totalVolume, prev.totalVolumeUsdt) : 0;
+
+      const dexOiChg = weightedDexOiChange(list, this.defillamaStats);
+      const dexVolChg = weightedDexVolumeChange(list, this.defillamaStats);
+      if (oiChangePct === 0 && dexOiChg != null) oiChangePct = dexOiChg;
+      if (volumeChangePct === 0 && dexVolChg != null) volumeChangePct = dexVolChg;
 
       this.pushAssetHistory(baseAsset, price, totalOi, totalVolume);
 
@@ -239,6 +258,11 @@ class AggregationService {
 
       const dataSources: string[] = ['aggregated'];
       if (this.cgCoinsCache.has(baseAsset)) dataSources.push('coinglass');
+      const dlStats = getDefiLlamaStatsForExchanges(
+        [...new Set(list.map((v) => v.exchange))],
+        this.defillamaStats
+      );
+      if (dlStats.length > 0) dataSources.push('defillama');
 
       const { signalType, conditions } = evaluateSignal(
         growthMatrix['1h']?.oiChangePct ?? oiChangePct,
@@ -275,6 +299,7 @@ class AggregationService {
         venues: list,
         growthMatrix,
         dataSources,
+        defillamaStats: dlStats.length > 0 ? dlStats : undefined,
       });
 
       this.previousSnapshots.set(baseAsset, {
@@ -387,6 +412,17 @@ class AggregationService {
         } catch {
           this.exchangeStatus.coingecko = 'error';
         }
+      }
+
+      try {
+        this.defillamaStats = await fetchDefiLlamaProtocolStats();
+        const { enriched } = enrichVenuesWithDefiLlama(allVenues, this.defillamaStats);
+        this.defillamaVenuesEnriched = enriched;
+        this.exchangeStatus.defillama = this.defillamaStats.size > 0 ? 'ok' : 'error';
+      } catch {
+        this.defillamaStats = new Map();
+        this.defillamaVenuesEnriched = false;
+        this.exchangeStatus.defillama = 'error';
       }
 
       await this.refreshCoinGlassBulk();
