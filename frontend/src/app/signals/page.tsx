@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
+import { useSearch } from '@/contexts/SearchContext';
 import { getSignals } from '@/lib/api';
+import { formatExchangeList } from '@/lib/exchanges';
+import { matchSymbolSearch } from '@/lib/search';
 import type { AggregatedMarket } from '@/lib/api';
 import { FlowSummaryCell } from '@/components/dashboard/InflowOutflowStrip';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
@@ -69,6 +72,7 @@ function SignalConditions({ market }: { market: AggregatedMarket }) {
 }
 
 export default function SignalsPage() {
+  const { search } = useSearch();
   const [signals, setSignals] = useState<AggregatedMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
@@ -85,10 +89,13 @@ export default function SignalsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const filtered = useMemo(
-    () => (filter === 'ALL' ? signals : signals.filter((s) => s.signalType === filter)),
-    [signals, filter]
-  );
+  const filtered = useMemo(() => {
+    let list = filter === 'ALL' ? signals : signals.filter((s) => s.signalType === filter);
+    if (search.trim()) {
+      list = list.filter((s) => matchSymbolSearch(search, s.baseAsset, s.symbol));
+    }
+    return list;
+  }, [signals, filter, search]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { ALL: signals.length };
@@ -104,8 +111,8 @@ export default function SignalsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Signals</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-            Live formula on data from Binance, Bybit, OKX (CEX) + Hyperliquid (DEX). Calculated on receive — not stored in
-            database.
+            Live formula on Binance, Bybit, OKX, MEXC, Coinbase, Kraken (CEX) + Hyperliquid & Aster (DEX).
+            CoinGecko aggregator fills gaps when an exchange API is unavailable.
           </p>
         </div>
 
@@ -142,7 +149,9 @@ export default function SignalsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-              No coins match this filter. Data refreshes every 30s.
+              {search.trim()
+                ? 'No coins match your search.'
+                : 'No coins match this filter. Data refreshes every 30s.'}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -185,7 +194,7 @@ export default function SignalsPage() {
                             {s.baseAsset}
                             <ArrowUpRight className="h-3 w-3" />
                           </Link>
-                          <p className="text-[9px] text-muted-foreground mt-0.5">{s.exchanges.join(', ')}</p>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">{formatExchangeList(s.exchanges)}</p>
                         </td>
                         <td className="py-3 px-4">
                           <span className={cn('text-xs font-semibold', getSignalClass(s.signalType))}>
@@ -224,7 +233,7 @@ export default function SignalsPage() {
                         <td className="py-3 px-4 min-w-[200px]">
                           <FlowSummaryCell market={s} timeframe={tf} />
                           <p className="text-[9px] text-muted-foreground mt-1 text-right">
-                            {s.exchanges.join(', ')}
+                            {formatExchangeList(s.exchanges)}
                           </p>
                         </td>
                         <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>

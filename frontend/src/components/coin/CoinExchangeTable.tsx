@@ -1,21 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { AggregatedMarket, VenueSnapshot } from '@/lib/api';
+import { EXCHANGE_LABELS } from '@/lib/exchanges';
 import {
   longShortLabel,
   venueOiChangeUsd,
   venueVolChangeUsd,
 } from '@/lib/liquidations';
 import { cn, formatNumber, formatPct, formatPrice } from '@/lib/utils';
-
-const EXCHANGE_LABELS: Record<string, string> = {
-  binance: 'Binance',
-  bybit: 'Bybit',
-  okx: 'OKX',
-  hyperliquid: 'Hyperliquid',
-  aster: 'Aster',
-};
 
 function ExchangeRow({
   venue,
@@ -38,6 +31,7 @@ function ExchangeRow({
       <td className="py-3 px-3 text-muted-foreground tabular-nums text-xs w-10">{rank}</td>
       <td className="py-3 px-3 text-xs font-semibold">
         {EXCHANGE_LABELS[venue.exchange] ?? venue.exchange}
+        <span className="ml-1.5 text-[9px] uppercase font-normal text-muted-foreground">{venue.marketType}</span>
       </td>
       <td className="py-3 px-3 font-mono text-xs text-muted-foreground">
         {venue.baseAsset}/{quote}
@@ -71,7 +65,14 @@ function ExchangeRow({
 
 export function CoinExchangeTable({ market }: { market: AggregatedMarket }) {
   const [mode, setMode] = useState<'futures' | 'spot'>('futures');
-  const venues = [...(market.venues ?? [])].sort((a, b) => b.volumeUsdt - a.volumeUsdt);
+
+  const venues = useMemo(() => {
+    const list = [...(market.venues ?? [])].sort((a, b) => b.volumeUsdt - a.volumeUsdt);
+    if (mode === 'spot') {
+      return list.filter((v) => v.marketType === 'cex');
+    }
+    return list;
+  }, [market.venues, mode]);
 
   if (venues.length === 0) {
     return (

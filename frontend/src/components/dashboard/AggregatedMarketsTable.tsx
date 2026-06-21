@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
 import { cn, formatNumber, formatPct, formatPrice } from '@/lib/utils';
+import { matchSymbolSearch } from '@/lib/search';
 import { Loader2 } from 'lucide-react';
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { LivePrice } from '@/components/dashboard/LivePrice';
@@ -29,12 +30,7 @@ function ChangeCell({ value }: { value: number }) {
 
 export function AggregatedMarketsTable({ markets, loading, search }: AggregatedMarketsTableProps) {
   const ranked = [...markets]
-    .filter((m) =>
-      search
-        ? m.baseAsset.toUpperCase().includes(search.toUpperCase()) ||
-          m.symbol.toUpperCase().includes(search.toUpperCase())
-        : true
-    )
+    .filter((m) => matchSymbolSearch(search ?? '', m.baseAsset, m.symbol))
     .sort((a, b) => b.marketCap - a.marketCap || b.priceChange24h - a.priceChange24h);
 
   if (loading) {

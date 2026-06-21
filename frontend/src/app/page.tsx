@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { useSearch } from '@/contexts/SearchContext';
 import { AggregatedMarketsTable } from '@/components/dashboard/AggregatedMarketsTable';
 import { AggregatedTrendingCard } from '@/components/dashboard/AggregatedTrendingCard';
 import { GainersLosersPanel } from '@/components/dashboard/GainersLosersPanel';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { ArrowRight, RefreshCw, TrendingUp, Zap, Target } from 'lucide-react';
 
 export default function DashboardPage() {
-  const [search, setSearch] = useState('');
+  const { search } = useSearch();
   const [refreshing, setRefreshing] = useState(false);
 
   const { markets, gainers, losers, loading, error, refetch, liveConnected } = useAggregatedMarkets('marketCap');
@@ -36,7 +37,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <AppShell connected={connected} searchValue={search} onSearchChange={setSearch}>
+    <AppShell connected={connected}>
       <div className="p-5 lg:p-6 space-y-8 max-w-[1500px]">
         <section>
           <div className="flex items-center justify-between mb-4">

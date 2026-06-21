@@ -24,7 +24,16 @@ const TF_MINUTES: Record<FlowTimeframe, number> = {
   '24h': 1440,
 };
 
-export const AGGREGATED_EXCHANGES = ['Binance', 'Bybit', 'OKX', 'Hyperliquid', 'Aster'] as const;
+export const AGGREGATED_EXCHANGES = [
+  'Binance',
+  'Bybit',
+  'OKX',
+  'MEXC',
+  'Coinbase',
+  'Kraken',
+  'Hyperliquid',
+  'Aster',
+] as const;
 
 /** Per-timeframe OI/vol % — never reuse the same fallback for every row */
 export function getTfGrowthPct(

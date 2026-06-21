@@ -1,10 +1,45 @@
-import { get24hTickers, getOpenInterestBatch, getPremiumIndex, isBinanceIpBanned } from '../binance/rest-client';
+import { env } from '../../config/env';
+import { getOpenInterestBatch, isBinanceIpBanned } from '../binance/rest-client';
 import { ingestionService } from '../data/ingestion-service';
 import type { VenueSnapshot } from './types';
 
-export async function fetchBinanceVenues(): Promise<VenueSnapshot[]> {
-  const [tickers, premium] = await Promise.all([get24hTickers(), getPremiumIndex()]);
+interface BinanceTicker {
+  symbol: string;
+  lastPrice: string;
+  quoteVolume: string;
+  priceChangePercent: string;
+}
+
+interface BinancePremium {
+  symbol: string;
+  lastFundingRate: string;
+}
+
+/** Direct public REST — avoids shared rate-limiter IP bans on cloud hosts */
+async function fetchBinancePublicTickers(): Promise<{ tickers: BinanceTicker[]; funding: Map<string, number> }> {
+  const base = env.BINANCE_REST_BASE;
+  const [tickersRes, premiumRes] = await Promise.all([
+    fetch(`${base}/fapi/v1/ticker/24hr`, {
+      signal: AbortSignal.timeout(20_000),
+      headers: { Accept: 'application/json' },
+    }),
+    fetch(`${base}/fapi/v1/premiumIndex`, {
+      signal: AbortSignal.timeout(20_000),
+      headers: { Accept: 'application/json' },
+    }),
+  ]);
+
+  if (!tickersRes.ok) throw new Error(`Binance ticker API ${tickersRes.status}`);
+
+  const tickers = (await tickersRes.json()) as BinanceTicker[];
+  const premium = premiumRes.ok ? ((await premiumRes.json()) as BinancePremium[]) : [];
   const fundingMap = new Map(premium.map((p) => [p.symbol, parseFloat(p.lastFundingRate) || 0]));
+
+  return { tickers, funding: fundingMap };
+}
+
+export async function fetchBinanceVenues(): Promise<VenueSnapshot[]> {
+  const { tickers, funding: fundingMap } = await fetchBinancePublicTickers();
   const now = Date.now();
 
   const venues = tickers
@@ -55,16 +90,20 @@ export async function enrichBinanceOpenInterest(venues: VenueSnapshot[]): Promis
     return venues;
   }
 
-  const oiMap = await getOpenInterestBatch(
-    missing.map((v) => v.symbol),
-    { batchSize: 5, batchDelayMs: 350, maxSymbols: 30 }
-  );
+  try {
+    const oiMap = await getOpenInterestBatch(
+      missing.map((v) => v.symbol),
+      { batchSize: 5, batchDelayMs: 350, maxSymbols: 30 }
+    );
 
-  for (const v of missing) {
-    const oi = oiMap.get(v.symbol);
-    if (!oi) continue;
-    const contracts = parseFloat(oi.openInterest) || 0;
-    v.openInterest = contracts * v.price;
+    for (const v of missing) {
+      const oi = oiMap.get(v.symbol);
+      if (!oi) continue;
+      const contracts = parseFloat(oi.openInterest) || 0;
+      v.openInterest = contracts * v.price;
+    }
+  } catch {
+    // OI enrichment optional — tickers still usable
   }
 
   return venues;

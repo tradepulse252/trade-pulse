@@ -7,10 +7,14 @@ import { fetchBybitVenues } from './bybit-adapter';
 import { fetchOkxVenues } from './okx-adapter';
 import { fetchHyperliquidVenues } from './hyperliquid-adapter';
 import { fetchAsterVenues } from './aster-adapter';
+import { fetchMexcVenues } from './mexc-adapter';
+import { fetchKrakenVenues } from './kraken-adapter';
+import { fetchCoinbaseVenues } from './coinbase-adapter';
+import { fetchCoinGeckoDerivativeVenues } from './coingecko-derivatives-adapter';
 import { fetchCoinMarketMeta, lookupMarketMeta, type CoinMarketMeta } from './market-meta';
 import { coinCapIconUrl } from './coin-icons';
 import { broadcastMarkets } from '../websocket/ws-broadcast';
-import type { AggregatedMarket, GainerLoser, VenueSnapshot } from './types';
+import type { AggregatedMarket, GainerLoser, VenueSnapshot, ExchangeId } from './types';
 
 const REFRESH_MS = 30_000;
 const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
@@ -251,20 +255,38 @@ class AggregationService {
     this.losers = [...mapped].sort((a, b) => a.priceChange24h - b.priceChange24h);
   }
 
+  private venueKey(v: VenueSnapshot) {
+    return `${v.exchange}:${v.baseAsset}`;
+  }
+
+  private mergeVenueLists(primary: VenueSnapshot[], supplemental: VenueSnapshot[]) {
+    const map = new Map<string, VenueSnapshot>();
+    for (const v of primary) map.set(this.venueKey(v), v);
+    for (const v of supplemental) {
+      const key = this.venueKey(v);
+      if (!map.has(key)) map.set(key, v);
+    }
+    return [...map.values()];
+  }
+
   async refresh() {
     if (this.refreshing) return;
     this.refreshing = true;
 
     try {
-      const fetchers: { name: string; fn: () => Promise<VenueSnapshot[]> }[] = [
+      const fetchers: { name: ExchangeId; fn: () => Promise<VenueSnapshot[]> }[] = [
         { name: 'binance', fn: async () => enrichBinanceOpenInterest(await fetchBinanceVenues()) },
         { name: 'bybit', fn: fetchBybitVenues },
         { name: 'okx', fn: fetchOkxVenues },
         { name: 'hyperliquid', fn: fetchHyperliquidVenues },
         { name: 'aster', fn: fetchAsterVenues },
+        { name: 'mexc', fn: fetchMexcVenues },
+        { name: 'coinbase', fn: fetchCoinbaseVenues },
+        { name: 'kraken', fn: fetchKrakenVenues },
       ];
 
       const allVenues: VenueSnapshot[] = [];
+      const failed: ExchangeId[] = [];
 
       await Promise.all(
         fetchers.map(async ({ name, fn }) => {
@@ -274,9 +296,24 @@ class AggregationService {
             this.exchangeStatus[name] = 'ok';
           } catch {
             this.exchangeStatus[name] = 'error';
+            failed.push(name);
           }
         })
       );
+
+      if (failed.length > 0) {
+        try {
+          const cgVenues = await fetchCoinGeckoDerivativeVenues(failed);
+          const merged = this.mergeVenueLists(allVenues, cgVenues);
+          allVenues.length = 0;
+          allVenues.push(...merged);
+          if (cgVenues.length > 0) {
+            this.exchangeStatus.coingecko = 'ok';
+          }
+        } catch {
+          this.exchangeStatus.coingecko = 'error';
+        }
+      }
 
       const baseAssets = [...new Set(allVenues.map((v) => v.baseAsset))];
       const marketMeta = await fetchCoinMarketMeta(baseAssets);

@@ -4,13 +4,7 @@ import { useMemo, useState } from 'react';
 import type { VenueSnapshot } from '@/lib/api';
 import { cn, formatNumber, formatPct } from '@/lib/utils';
 
-const EXCHANGE_LABELS: Record<string, string> = {
-  binance: 'Binance',
-  bybit: 'Bybit',
-  okx: 'OKX',
-  hyperliquid: 'Hyperliquid',
-  aster: 'Aster',
-};
+import { EXCHANGE_LABELS } from '@/lib/exchanges';
 
 function heatColor(changePct: number, intensity: number): string {
   const alpha = 0.45 + Math.min(intensity, 0.5);

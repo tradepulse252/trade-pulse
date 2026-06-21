@@ -3,17 +3,17 @@
 import Link from 'next/link';
 import { Globe, LogIn, Search, User, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSearch } from '@/contexts/SearchContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface TopBarProps {
   connected?: boolean;
-  searchValue?: string;
-  onSearchChange?: (value: string) => void;
 }
 
-export function TopBar({ connected, searchValue = '', onSearchChange }: TopBarProps) {
+export function TopBar({ connected }: TopBarProps) {
   const { user } = useAuth();
+  const { search, setSearch } = useSearch();
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-white/[0.06] bg-background/80 px-5 backdrop-blur-xl">
@@ -23,8 +23,8 @@ export function TopBar({ connected, searchValue = '', onSearchChange }: TopBarPr
           <input
             type="text"
             placeholder="Search symbol (BTC, ETH…)"
-            value={searchValue}
-            onChange={(e) => onSearchChange?.(e.target.value.toUpperCase())}
+            value={search}
+            onChange={(e) => setSearch(e.target.value.toUpperCase())}
             className="dashboard-input h-11 pl-10 pr-12 rounded-2xl bg-secondary/50"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-6 items-center rounded-md border border-white/10 bg-white/5 px-1.5 text-[10px] text-muted-foreground">

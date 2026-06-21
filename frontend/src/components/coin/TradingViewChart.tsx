@@ -8,7 +8,7 @@ interface TradingViewChartProps {
   height?: number;
 }
 
-export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 480 }: TradingViewChartProps) {
+export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 720 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useId().replace(/:/g, '');
 
@@ -54,7 +54,7 @@ export function TradingViewChart({ symbol, exchange = 'BINANCE', height = 480 }:
   return (
     <div
       ref={containerRef}
-      className="tradingview-widget-container w-full rounded-xl overflow-hidden border border-white/[0.06]"
+      className="tradingview-widget-container w-full rounded-xl overflow-hidden border border-white/[0.06] min-h-[480px]"
       style={{ height }}
     />
   );

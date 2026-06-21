@@ -138,19 +138,17 @@ export default function CoinDetailPage() {
         </div>
 
         {tab === 'overview' && (
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
-            <div className="space-y-4 min-w-0">
-              <div className="glass-card overflow-hidden">
-                <CoinExchangeTable market={market} />
-              </div>
-
-              <div className="glass-card p-4">
-                <h2 className="text-sm font-semibold mb-3">{market.baseAsset} Live Chart</h2>
-                <TradingViewChart symbol={tvSymbol} height={500} />
-              </div>
+          <div className="space-y-4">
+            <div className="glass-card overflow-hidden">
+              <CoinExchangeTable market={market} />
             </div>
 
-            <div className="space-y-4">
+            <div className="glass-card p-4">
+              <h2 className="text-sm font-semibold mb-3">{market.baseAsset} Live Chart</h2>
+              <TradingViewChart symbol={tvSymbol} height={720} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="glass-card p-4">
                 <CoinLiquidationPanel market={market} />
               </div>
