@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
 import { CoinLogo } from '@/components/ui/CoinLogo';
-import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
-import { FLOW_TIMEFRAMES, type FlowTimeframe } from '@/lib/flow';
-import { formatNumber, formatPct, formatPrice } from '@/lib/utils';
+import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
+import type { FlowTimeframe } from '@/lib/flow';
+import { getTfMetric } from '@/lib/metrics';
+import { formatPct, formatPrice } from '@/lib/utils';
 import type { TimeframeKey } from '@/lib/sorting';
 import { getTimeframeLabel } from '@/lib/sorting';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
@@ -19,6 +20,14 @@ export function AggregatedTrendingCard({
   timeframe?: TimeframeKey;
 }) {
   const tf = timeframe as FlowTimeframe;
+  const tfMetric = getTfMetric(
+    market.growthMatrix,
+    tf,
+    market.totalOpenInterest,
+    market.totalVolumeUsdt,
+    market.oiChangePct,
+    market.volumeChangePct
+  );
   const sparkValues = getOpportunitySparkline(market.growthMatrix, market.priceChange24h);
   const positive = market.priceChange24h >= 0;
 
@@ -45,12 +54,21 @@ export function AggregatedTrendingCard({
 
         <div>
           <p className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1.5">
-            OI & Volume · {getTimeframeLabel(timeframe)} + all TFs ($ and %)
+            OI & Volume · {getTimeframeLabel(timeframe)}
           </p>
-          <p className="text-[9px] font-mono text-muted-foreground mb-1">
-            OI ${formatNumber(market.totalOpenInterest)} · V ${formatNumber(market.totalVolumeUsdt)}
-          </p>
-          <OiVolumeTfStrip market={market} mode="both" timeframes={FLOW_TIMEFRAMES} activeTimeframe={tf} compact />
+          <div className="flex justify-between gap-2">
+            <MoneyPctCell
+              totalUsd={market.totalOpenInterest}
+              changeUsd={tfMetric.oiChangeUsd}
+              changePct={tfMetric.oiChangePct}
+              className="text-left"
+            />
+            <MoneyPctCell
+              totalUsd={market.totalVolumeUsdt}
+              changeUsd={tfMetric.volumeChangeUsd}
+              changePct={tfMetric.volumeChangePct}
+            />
+          </div>
         </div>
       </article>
     </Link>

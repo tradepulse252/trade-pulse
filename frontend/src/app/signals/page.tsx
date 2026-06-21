@@ -5,11 +5,10 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { getSignals } from '@/lib/api';
 import type { AggregatedMarket } from '@/lib/api';
-import { FlowSummaryCell, InflowOutflowStrip } from '@/components/dashboard/InflowOutflowStrip';
+import { FlowSummaryCell } from '@/components/dashboard/InflowOutflowStrip';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
-import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
-import { TimeframeSelector } from '@/components/dashboard/TimeframeSelector';
-import { FLOW_TIMEFRAMES, type FlowTimeframe } from '@/lib/flow';
+import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
+import { type FlowTimeframe } from '@/lib/flow';
 import { getTfMetric } from '@/lib/metrics';
 import { getTimeframeLabel, type TimeframeKey } from '@/lib/sorting';
 import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
@@ -122,9 +121,8 @@ export default function SignalsPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-2">
-            {SIGNAL_FILTERS.map(({ key, label }) => (
+        <div className="flex flex-wrap gap-2">
+          {SIGNAL_FILTERS.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
@@ -134,8 +132,6 @@ export default function SignalsPage() {
                 {label} ({counts[key] ?? 0})
               </button>
             ))}
-          </div>
-          <TimeframeSelector value={timeframe} onChange={setTimeframe} className="ml-auto" />
         </div>
 
         <div className="glass-card overflow-hidden">
@@ -158,10 +154,10 @@ export default function SignalsPage() {
                     <th className="text-left py-3 px-4">Signal</th>
                     <th className="text-left py-3 px-4">Conditions</th>
                     <th className="text-right py-3 px-4">Score</th>
-                    <th className="text-right py-3 px-4 min-w-[360px]">
+                    <th className="text-right py-3 px-4 min-w-[300px]">
                       OI & Volume <span className="text-primary/80">({tfLabel})</span>
                     </th>
-                    <th className="text-right py-3 px-4 min-w-[280px]">
+                    <th className="text-right py-3 px-4 min-w-[200px]">
                       Inflow / Outflow <span className="text-primary/80">({tfLabel})</span>
                     </th>
                     <th className="text-right py-3 px-4">Funding</th>
@@ -202,7 +198,7 @@ export default function SignalsPage() {
                         <td className="py-3 px-4 text-right font-mono text-primary font-semibold">
                           {s.opportunityScore.toFixed(1)}
                         </td>
-                        <td className="py-3 px-4 min-w-[360px]">
+                        <td className="py-3 px-4 min-w-[300px]">
                           <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
                             <div className="text-right">
                               <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
@@ -223,31 +219,13 @@ export default function SignalsPage() {
                               />
                             </div>
                           </div>
-                          <div className="overflow-x-auto pb-1">
-                            <div className="min-w-[560px]">
-                              <OiVolumeTfStrip
-                                market={s}
-                                mode="both"
-                                timeframes={FLOW_TIMEFRAMES}
-                                activeTimeframe={tf}
-                                compact
-                              />
-                            </div>
-                          </div>
+                          <TimeframeNav value={tf} onChange={(t) => setTimeframe(t as TimeframeKey)} />
                         </td>
-                        <td className="py-3 px-4 min-w-[280px]">
+                        <td className="py-3 px-4 min-w-[200px]">
                           <FlowSummaryCell market={s} timeframe={tf} />
-                          <div className="mt-2 overflow-x-auto">
-                            <div className="min-w-[420px]">
-                              <InflowOutflowStrip
-                                market={s}
-                                timeframes={FLOW_TIMEFRAMES}
-                                activeTimeframe={tf}
-                                compact
-                                showExchangeNote
-                              />
-                            </div>
-                          </div>
+                          <p className="text-[9px] text-muted-foreground mt-1 text-right">
+                            {s.exchanges.join(', ')}
+                          </p>
                         </td>
                         <td className="py-3 px-4 text-right data-cell text-xs">{formatFunding(s.avgFundingRate)}</td>
                         <td

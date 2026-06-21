@@ -9,7 +9,7 @@ import { AggregatedMarketsTable } from '@/components/dashboard/AggregatedMarkets
 import { AggregatedTrendingCard } from '@/components/dashboard/AggregatedTrendingCard';
 import { GainersLosersPanel } from '@/components/dashboard/GainersLosersPanel';
 import { InsightStatCard } from '@/components/dashboard/InsightStatCard';
-import { TimeframeSelector } from '@/components/dashboard/TimeframeSelector';
+import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
 import { useAggregatedMarkets } from '@/hooks/useAggregatedMarkets';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { applyAggregatedFilters } from '@/lib/filters';
@@ -110,7 +110,10 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <TimeframeSelector value={metricTimeframe} onChange={setMetricTimeframe} />
+              <TimeframeNav
+                value={metricTimeframe}
+                onChange={(t) => setMetricTimeframe(t)}
+              />
               <div className="flex flex-wrap items-center gap-2">
               {SORT_OPTIONS.map((opt) => (
                 <button

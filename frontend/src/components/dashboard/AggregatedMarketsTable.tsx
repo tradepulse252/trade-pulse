@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { AggregatedMarket } from '@/lib/api';
-import { FLOW_TIMEFRAMES, type FlowTimeframe } from '@/lib/flow';
+import type { FlowTimeframe } from '@/lib/flow';
 import { cn, formatFunding, formatNumber, formatPct, getSignalLabel } from '@/lib/utils';
 import { Sparkline, getOpportunitySparkline } from '@/components/charts/Sparkline';
 import { Loader2 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { CoinLogo } from '@/components/ui/CoinLogo';
 import { LivePrice } from '@/components/dashboard/LivePrice';
 import { MoneyPctCell } from '@/components/dashboard/MoneyPctCell';
-import { OiVolumeTfStrip } from '@/components/dashboard/OiVolumeTfStrip';
+import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
 import { getTfMetric } from '@/lib/metrics';
 import type { TimeframeKey } from '@/lib/sorting';
 import { getTimeframeLabel } from '@/lib/sorting';
@@ -20,6 +20,7 @@ interface AggregatedMarketsTableProps {
   loading?: boolean;
   search?: string;
   timeframe?: TimeframeKey;
+  onTimeframeChange?: (tf: TimeframeKey) => void;
 }
 
 function PctCell({ value }: { value: number }) {
@@ -35,6 +36,7 @@ export function AggregatedMarketsTable({
   loading,
   search,
   timeframe = '1h',
+  onTimeframeChange,
 }: AggregatedMarketsTableProps) {
   const tf = timeframe as FlowTimeframe;
   const tfLabel = getTimeframeLabel(timeframe);
@@ -74,11 +76,8 @@ export function AggregatedMarketsTable({
             <th className="text-right py-3.5 px-4 font-medium">Market Cap</th>
             <th className="text-right py-3.5 px-4 font-medium">Price</th>
             <th className="text-right py-3.5 px-4 font-medium">24h</th>
-            <th className="text-right py-3.5 px-4 font-medium min-w-[130px]">
-              Open Interest <span className="text-primary/80">({tfLabel})</span>
-            </th>
-            <th className="text-right py-3.5 px-4 font-medium min-w-[130px]">
-              Volume <span className="text-primary/80">({tfLabel})</span>
+            <th className="text-right py-3.5 px-4 font-medium min-w-[280px]">
+              OI & Volume <span className="text-primary/80">({tfLabel})</span>
             </th>
             <th className="text-right py-3.5 px-4 font-medium">Avg Funding</th>
             <th className="text-right py-3.5 px-4 font-medium">Exchanges</th>
@@ -115,41 +114,28 @@ export function AggregatedMarketsTable({
                   <LivePrice price={m.price} />
                 </td>
                 <td className="py-4 px-4 text-right"><PctCell value={m.priceChange24h} /></td>
-                <td className="py-4 px-4 text-right min-w-[140px]">
-                  <MoneyPctCell
-                    totalUsd={m.totalOpenInterest}
-                    changeUsd={tfMetric.oiChangeUsd}
-                    changePct={tfMetric.oiChangePct}
-                  />
-                  <div className="mt-2 overflow-x-auto">
-                    <div className="min-w-[280px]">
-                      <OiVolumeTfStrip
-                        market={m}
-                        mode="oi"
-                        timeframes={FLOW_TIMEFRAMES}
-                        activeTimeframe={tf}
-                        compact
+                <td className="py-4 px-4 min-w-[280px]">
+                  <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 mb-2">
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Open Interest</p>
+                      <MoneyPctCell
+                        totalUsd={m.totalOpenInterest}
+                        changeUsd={tfMetric.oiChangeUsd}
+                        changePct={tfMetric.oiChangePct}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Volume</p>
+                      <MoneyPctCell
+                        totalUsd={m.totalVolumeUsdt}
+                        changeUsd={tfMetric.volumeChangeUsd}
+                        changePct={tfMetric.volumeChangePct}
                       />
                     </div>
                   </div>
-                </td>
-                <td className="py-4 px-4 text-right min-w-[140px]">
-                  <MoneyPctCell
-                    totalUsd={m.totalVolumeUsdt}
-                    changeUsd={tfMetric.volumeChangeUsd}
-                    changePct={tfMetric.volumeChangePct}
-                  />
-                  <div className="mt-2 overflow-x-auto">
-                    <div className="min-w-[280px]">
-                      <OiVolumeTfStrip
-                        market={m}
-                        mode="volume"
-                        timeframes={FLOW_TIMEFRAMES}
-                        activeTimeframe={tf}
-                        compact
-                      />
-                    </div>
-                  </div>
+                  {onTimeframeChange && (
+                    <TimeframeNav value={tf} onChange={(t) => onTimeframeChange(t as TimeframeKey)} />
+                  )}
                 </td>
                 <td className="py-4 px-4 text-right data-cell">{formatFunding(m.avgFundingRate)}</td>
                 <td className="py-4 px-4 text-right">
