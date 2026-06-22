@@ -89,11 +89,33 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
             <div className="glass-card overflow-hidden min-w-0">
               {error && markets.length === 0 && !loading ? (
-                <div className="p-10 text-center space-y-3">
-                  <p className="text-short font-medium">Cannot reach backend API</p>
+                <div className="p-10 text-center space-y-4">
+                  <p className="text-short font-medium">{error}</p>
                   <p className="text-sm text-muted-foreground">
                     API: {process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}
                   </p>
+                  {error.includes('503') || error.includes('suspended') ? (
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                      If this persists, open{' '}
+                      <a
+                        href="https://dashboard.render.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Render Dashboard
+                      </a>{' '}
+                      and check that <strong>tradepulse-api-eu</strong> is not suspended (billing or usage limits).
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/[0.05]"
+                  >
+                    <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+                    Retry connection
+                  </button>
                 </div>
               ) : (
                 <AggregatedMarketsTable markets={markets} loading={loading} search={search} />

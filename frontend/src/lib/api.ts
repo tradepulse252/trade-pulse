@@ -120,13 +120,51 @@ export interface ChartData {
   volume: ChartDataPoint[];
 }
 
+function apiErrorMessage(status: number): string {
+  if (status === 503) {
+    return 'Backend unavailable (503) — Render may be waking up or the service is suspended. Retry in a moment.';
+  }
+  if (status === 502) {
+    return 'Backend starting up (502) — please wait and retry.';
+  }
+  return `API error: ${status}`;
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}/api${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  const maxAttempts = 4;
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${API_URL}/api${path}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+      });
+      lastStatus = res.status;
+      if (res.ok) return res.json();
+
+      if ((res.status === 502 || res.status === 503) && attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error(apiErrorMessage(res.status));
+    } catch (err) {
+      if (attempt < maxAttempts - 1 && (err as Error).name === 'TypeError') {
+        await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+        continue;
+      }
+      if ((err as Error).message.startsWith('API error') || (err as Error).message.includes('Backend')) {
+        throw err;
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error(lastStatus ? apiErrorMessage(lastStatus) : 'Cannot reach backend API');
+    }
+  }
+
+  throw new Error(lastStatus ? apiErrorMessage(lastStatus) : 'Cannot reach backend API');
 }
 
 export async function getOpportunities(filters?: OpportunityFilters): Promise<Opportunity[]> {

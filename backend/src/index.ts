@@ -65,12 +65,15 @@ async function bootstrap() {
 
   void startIngestion();
   setTimeout(() => aggregationService.start(), 20_000);
+  // Avoid aggressive restart loops — reduces Render service-initiated traffic
   setInterval(() => {
+    const hasAggregation = aggregationService.getMarkets().length > 0;
+    if (hasAggregation) return;
     if (ingestionService.getLiveOpportunities().length === 0) {
       ingestionService.prepareRestart();
       void startIngestion();
     }
-  }, 60_000);
+  }, 5 * 60_000);
 
   await initPushNotifications();
   try {
