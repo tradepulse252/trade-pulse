@@ -96,16 +96,7 @@ export default function DashboardPage() {
                   </p>
                   {error.includes('503') || error.includes('suspended') ? (
                     <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                      If this persists, open{' '}
-                      <a
-                        href="https://dashboard.render.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Render Dashboard
-                      </a>{' '}
-                      and check that <strong>tradepulse-api-eu</strong> is not suspended (billing or usage limits).
+                      Render backend may be suspended. Market data should load via Vercel fallback automatically on retry.
                     </p>
                   ) : null}
                   <button
