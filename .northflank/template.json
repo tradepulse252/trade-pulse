@@ -17,7 +17,7 @@
     },
     "frontendUrl": {
       "type": "string",
-      "default": "https://tradepulse.vercel.app"
+      "default": "https://tradepulses.vercel.app"
     },
     "firebaseProjectId": {
       "type": "string",

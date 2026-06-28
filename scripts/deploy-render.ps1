@@ -52,4 +52,4 @@ if ($RenderUrl) {
     }
 }
 
-Write-Host "`n✅ Done. App: https://tradepulse.vercel.app" -ForegroundColor Cyan
+Write-Host "`n✅ Done. App: https://tradepulses.vercel.app" -ForegroundColor Cyan

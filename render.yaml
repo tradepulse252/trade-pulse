@@ -22,9 +22,9 @@ services:
       - key: FIRESTORE_DATABASE_ID
         value: (default)
       - key: CORS_ORIGIN
-        value: https://tradepulse-vert.vercel.app,https://tradepulse.vercel.app
+        value: https://tradepulses.vercel.app
       - key: FRONTEND_URL
-        value: https://tradepulse.vercel.app
+        value: https://tradepulses.vercel.app
       - key: EMAIL_USE_SMTP
         value: "false"
       - key: PERSIST_MARKET_DATA
