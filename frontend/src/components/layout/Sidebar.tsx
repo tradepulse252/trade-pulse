@@ -12,6 +12,7 @@ import {
   Bell,
   Radio,
   TrendingUp,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ const mainNav = [
   { href: '/', label: 'Dashboard', icon: BarChart3 },
   { href: '/signals', label: 'Signals', icon: Radio },
   { href: '/gainers-losers', label: 'Movers', icon: TrendingUp },
+  { href: '/journal', label: 'Trade Journal', icon: BookOpen },
   { href: '/watchlist', label: 'Watchlist', icon: Star },
   { href: '/settings', label: 'API', icon: Settings },
   { href: '/admin', label: 'Admin', icon: Shield },

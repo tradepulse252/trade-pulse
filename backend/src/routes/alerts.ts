@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -8,59 +8,48 @@ router.use(authenticate);
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   const unreadOnly = req.query.unread === 'true';
-  const alerts = await prisma.alert.findMany({
-    where: {
-      userId: req.userId,
-      ...(unreadOnly && { isRead: false }),
-    },
-    include: { symbol: { select: { symbol: true } } },
-    orderBy: { triggeredAt: 'desc' },
-    take: 100,
-  });
+  const alerts = await db.alerts.findByUserId(req.userId!, { unreadOnly, limit: 100 });
+
+  const data = await Promise.all(
+    alerts.map(async (a) => {
+      const symbol = a.symbolId ? await db.symbols.findById(a.symbolId) : null;
+      return {
+        id: a.id,
+        alertType: a.alertType,
+        title: a.title,
+        message: a.message,
+        symbol: symbol?.symbol,
+        isRead: a.isRead,
+        triggeredAt: a.triggeredAt,
+        metadata: a.metadata,
+      };
+    })
+  );
 
   res.json({
-    data: alerts.map((a) => ({
-      id: a.id,
-      alertType: a.alertType,
-      title: a.title,
-      message: a.message,
-      symbol: a.symbol?.symbol,
-      isRead: a.isRead,
-      triggeredAt: a.triggeredAt,
-      metadata: a.metadata,
-    })),
-    unreadCount: alerts.filter((a) => !a.isRead).length,
+    data,
+    unreadCount: data.filter((a) => !a.isRead).length,
   });
 });
 
 router.patch('/:id/read', async (req: AuthRequest, res: Response) => {
   const id = String(req.params.id);
-  await prisma.alert.updateMany({
-    where: { id, userId: req.userId },
-    data: { isRead: true },
-  });
+  await db.alerts.markRead(id, req.userId!);
   res.json({ success: true });
 });
 
 router.patch('/read-all', async (req: AuthRequest, res: Response) => {
-  await prisma.alert.updateMany({
-    where: { userId: req.userId, isRead: false },
-    data: { isRead: true },
-  });
+  await db.alerts.markAllRead(req.userId!);
   res.json({ success: true });
 });
 
 router.get('/settings', async (req: AuthRequest, res: Response) => {
-  const settings = await prisma.alertSetting.findUnique({ where: { userId: req.userId } });
+  const settings = await db.alertSettings.findByUserId(req.userId!);
   res.json({ data: settings });
 });
 
 router.put('/settings', async (req: AuthRequest, res: Response) => {
-  const settings = await prisma.alertSetting.upsert({
-    where: { userId: req.userId! },
-    update: req.body,
-    create: { userId: req.userId!, ...req.body },
-  });
+  const settings = await db.alertSettings.upsert(req.userId!, req.body);
   res.json({ data: settings });
 });
 

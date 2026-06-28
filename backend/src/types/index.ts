@@ -1,4 +1,4 @@
-import { SignalType } from '@prisma/client';
+import { SignalType } from '../lib/db/types';
 import { TimeframeKey } from '../config/env';
 
 export interface BinanceExchangeInfo {

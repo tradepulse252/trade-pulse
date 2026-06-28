@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 import { binanceWs } from '../services/binance/ws-client';
 import { getConnectedClients } from '../services/websocket/ws-broadcast';
 import { ingestionService } from '../services/data/ingestion-service';
@@ -11,14 +11,14 @@ const router = Router();
 router.use(authenticate, requireAdmin);
 
 router.get('/dashboard', async (_req: AuthRequest, res: Response) => {
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
   const [userCount, alertCount, symbolCount, recentErrors, latestHealth] = await Promise.all([
-    prisma.user.count({ where: { isActive: true } }),
-    prisma.alert.count({
-      where: { triggeredAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-    }),
-    prisma.symbol.count({ where: { isActive: true } }),
-    prisma.errorLog.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
-    prisma.systemHealth.findFirst({ orderBy: { recordedAt: 'desc' } }),
+    db.users.countActive(),
+    db.alerts.countSince(since24h),
+    db.symbols.countActive(),
+    db.errorLogs.findMany({ limit: 20 }),
+    db.systemHealth.findLatest(),
   ]);
 
   const restHealthy = await pingBinance();
@@ -53,13 +53,8 @@ router.get('/errors', async (req: AuthRequest, res: Response) => {
   const source = req.query.source as string | undefined;
 
   const [errors, total] = await Promise.all([
-    prisma.errorLog.findMany({
-      where: source ? { source } : undefined,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.errorLog.count({ where: source ? { source } : undefined }),
+    db.errorLogs.findMany({ source, limit, skip: (page - 1) * limit }),
+    db.errorLogs.count(source),
   ]);
 
   res.json({ data: errors, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
@@ -67,20 +62,18 @@ router.get('/errors', async (req: AuthRequest, res: Response) => {
 
 router.post('/health-snapshot', async (_req: AuthRequest, res: Response) => {
   const restHealthy = await pingBinance();
-  const health = await prisma.systemHealth.create({
-    data: {
-      restApiStatus: restHealthy ? 'healthy' : 'down',
-      wsStatus: binanceWs.isConnected ? 'healthy' : 'down',
-      lastRestPing: new Date(),
-      lastWsMessage: binanceWs.lastMessageTimestamp
-        ? new Date(binanceWs.lastMessageTimestamp)
-        : null,
-      activeSymbols: await prisma.symbol.count({ where: { isActive: true } }),
-      activeUsers: await prisma.user.count({ where: { isActive: true } }),
-      alertsToday: await prisma.alert.count({
-        where: { triggeredAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-      }),
-    },
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const health = await db.systemHealth.create({
+    restApiStatus: restHealthy ? 'healthy' : 'down',
+    wsStatus: binanceWs.isConnected ? 'healthy' : 'down',
+    lastRestPing: new Date(),
+    lastWsMessage: binanceWs.lastMessageTimestamp
+      ? new Date(binanceWs.lastMessageTimestamp)
+      : null,
+    activeSymbols: await db.symbols.countActive(),
+    activeUsers: await db.users.countActive(),
+    alertsToday: await db.alerts.countSince(since24h),
   });
   res.json({ data: health });
 });

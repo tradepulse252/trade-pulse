@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Trade-Pulse backend uses Firebase Admin SDK (server-side).
+    // Direct client access is denied; use the REST API instead.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

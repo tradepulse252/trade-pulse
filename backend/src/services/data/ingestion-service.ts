@@ -1,6 +1,6 @@
-import { SignalType } from '@prisma/client';
-import { env, TIMEFRAME_TO_PRISMA, TIMEFRAMES } from '../../config/env';
-import { prisma } from '../../lib/prisma';
+import { SignalType } from '../../lib/db/types';
+import { env, TIMEFRAME_TO_DB, TIMEFRAMES } from '../../config/env';
+import { ensureDb, db } from '../../lib/db';
 import { cacheSet, publish } from '../../lib/redis';
 import { get24hTickers, getExchangeInfo, getPremiumIndex } from '../binance/rest-client';
 import { binanceWs } from '../binance/ws-client';
@@ -250,8 +250,7 @@ class IngestionService {
 
   private async checkDatabase(): Promise<boolean> {
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      return true;
+      return await ensureDb();
     } catch {
       return false;
     }
@@ -282,18 +281,14 @@ class IngestionService {
         try {
           const lotSizeFilter = sym.filters.find((f) => f.filterType === 'LOT_SIZE');
           const priceFilter = sym.filters.find((f) => f.filterType === 'PRICE_FILTER');
-          const record = await prisma.symbol.upsert({
-            where: { symbol: sym.symbol },
-            update: { isActive: true },
-            create: {
-              symbol: sym.symbol,
-              baseAsset: sym.baseAsset,
-              quoteAsset: sym.quoteAsset,
-              minQty: lotSizeFilter?.minQty ? parseFloat(lotSizeFilter.minQty) : undefined,
-              tickSize: priceFilter?.tickSize ? parseFloat(priceFilter.tickSize) : undefined,
-            },
+          const record = await db.symbols.upsert({
+            symbol: sym.symbol,
+            baseAsset: sym.baseAsset,
+            quoteAsset: sym.quoteAsset,
+            minQty: lotSizeFilter?.minQty ? parseFloat(lotSizeFilter.minQty) : undefined,
+            tickSize: priceFilter?.tickSize ? parseFloat(priceFilter.tickSize) : undefined,
           });
-          symbolId = record.id;
+          symbolId = record!.id;
         } catch {
           // fall back to symbol name as id
         }
@@ -391,9 +386,12 @@ class IngestionService {
       refreshed++;
 
       if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
-        await prisma.openInterestSnapshot
-          .create({
-            data: { symbolId, openInterest: oiBase, openInterestValue: oiValue, timestamp: new Date() },
+        await db.snapshots
+          .createOpenInterest({
+            symbolId,
+            openInterest: oiBase,
+            openInterestValue: oiValue,
+            timestamp: new Date(),
           })
           .catch(() => {});
       }
@@ -494,19 +492,22 @@ class IngestionService {
   private async persistSnapshot(snapshot: MarketSnapshot): Promise<void> {
     const now = new Date();
     await Promise.all([
-      prisma.priceSnapshot.create({
-        data: { symbolId: snapshot.symbolId, price: snapshot.price, timestamp: now },
+      db.snapshots.createPrice({
+        symbolId: snapshot.symbolId,
+        price: snapshot.price,
+        timestamp: now,
       }),
-      prisma.volumeSnapshot.create({
-        data: { symbolId: snapshot.symbolId, volume: 0, volumeUsdt: snapshot.volumeUsdt, timestamp: now },
+      db.snapshots.createVolume({
+        symbolId: snapshot.symbolId,
+        volume: 0,
+        volumeUsdt: snapshot.volumeUsdt,
+        timestamp: now,
       }),
-      prisma.fundingRateSnapshot.create({
-        data: {
-          symbolId: snapshot.symbolId,
-          fundingRate: snapshot.fundingRate,
-          markPrice: snapshot.price,
-          timestamp: now,
-        },
+      db.snapshots.createFundingRate({
+        symbolId: snapshot.symbolId,
+        fundingRate: snapshot.fundingRate,
+        markPrice: snapshot.price,
+        timestamp: now,
       }),
     ]);
   }
@@ -515,31 +516,16 @@ class IngestionService {
     if (this.dbEnabled && env.PERSIST_MARKET_DATA) {
       try {
         const [priceHistory, oiHistory, volumeHistory] = await Promise.all([
-          prisma.priceSnapshot.findMany({
-            where: { symbolId },
-            orderBy: { timestamp: 'desc' },
-            take: 500,
-            select: { price: true, timestamp: true },
-          }),
-          prisma.openInterestSnapshot.findMany({
-            where: { symbolId },
-            orderBy: { timestamp: 'desc' },
-            take: 500,
-            select: { openInterestValue: true, timestamp: true },
-          }),
-          prisma.volumeSnapshot.findMany({
-            where: { symbolId },
-            orderBy: { timestamp: 'desc' },
-            take: 500,
-            select: { volumeUsdt: true, timestamp: true },
-          }),
+          db.snapshots.findPrices(symbolId, 500, 'desc'),
+          db.snapshots.findOpenInterest(symbolId, 500, 'desc'),
+          db.snapshots.findVolumes(symbolId, 500, 'desc'),
         ]);
 
         if (priceHistory.length > 2) {
           return {
-            price: priceHistory.map((p) => ({ value: Number(p.price), timestamp: p.timestamp })),
-            oi: oiHistory.map((o) => ({ value: Number(o.openInterestValue), timestamp: o.timestamp })),
-            volume: volumeHistory.map((v) => ({ value: Number(v.volumeUsdt), timestamp: v.timestamp })),
+            price: priceHistory.map((p) => ({ value: p.price, timestamp: p.timestamp })),
+            oi: oiHistory.map((o) => ({ value: o.openInterestValue, timestamp: o.timestamp })),
+            volume: volumeHistory.map((v) => ({ value: v.volumeUsdt, timestamp: v.timestamp })),
           };
         }
       } catch {
@@ -635,21 +621,12 @@ class IngestionService {
     for (const tf of TIMEFRAMES) {
       const metrics = growthMatrix[tf];
       if (!metrics) continue;
-      await prisma.growthMetric.upsert({
-        where: { symbolId_timeframe: { symbolId: snapshot.symbolId, timeframe: TIMEFRAME_TO_PRISMA[tf] } },
-        update: {
-          priceChangePct: metrics.priceChangePct,
-          oiChangePct: metrics.oiChangePct,
-          volumeChangePct: metrics.volumeChangePct,
-          calculatedAt: new Date(),
-        },
-        create: {
-          symbolId: snapshot.symbolId,
-          timeframe: TIMEFRAME_TO_PRISMA[tf],
-          priceChangePct: metrics.priceChangePct,
-          oiChangePct: metrics.oiChangePct,
-          volumeChangePct: metrics.volumeChangePct,
-        },
+      await db.growthMetrics.upsert({
+        symbolId: snapshot.symbolId,
+        timeframe: TIMEFRAME_TO_DB[tf],
+        priceChangePct: metrics.priceChangePct,
+        oiChangePct: metrics.oiChangePct,
+        volumeChangePct: metrics.volumeChangePct,
       });
     }
 
@@ -666,14 +643,12 @@ class IngestionService {
       isActive: true,
     };
 
-    const existingSignal = await prisma.signal.findFirst({
-      where: { symbolId: snapshot.symbolId, isActive: true },
-    });
+    const existingSignal = await db.signals.findActiveBySymbolId(snapshot.symbolId);
 
     if (existingSignal) {
-      await prisma.signal.update({ where: { id: existingSignal.id }, data: signalData });
+      await db.signals.update(existingSignal.id, signalData);
     } else {
-      await prisma.signal.create({ data: { symbolId: snapshot.symbolId, ...signalData } });
+      await db.signals.create({ symbolId: snapshot.symbolId, ...signalData });
     }
 
     await alertEngine.evaluate(snapshot, opportunity, primary);

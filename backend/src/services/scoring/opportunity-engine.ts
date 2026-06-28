@@ -1,4 +1,4 @@
-import { SignalType } from '@prisma/client';
+import { SignalType } from '../../lib/db/types';
 import { GrowthMatrix } from '../../types';
 import { getPrimaryLookback } from './growth-calculator';
 

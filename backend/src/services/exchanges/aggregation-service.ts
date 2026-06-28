@@ -1,4 +1,4 @@
-import { SignalType } from '@prisma/client';
+import { SignalType } from '../../lib/db/types';
 import { env, type TimeframeKey } from '../../config/env';
 import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';

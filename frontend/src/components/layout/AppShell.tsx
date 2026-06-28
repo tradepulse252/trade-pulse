@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, Star, Settings, Shield, Radio, TrendingUp } from 'lucide-react';
+import { BarChart3, Star, Settings, Shield, Radio, TrendingUp, BookOpen } from 'lucide-react';
 import { SearchProvider } from '@/contexts/SearchContext';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -17,6 +17,7 @@ const mobileNav = [
   { href: '/', label: 'Home', icon: BarChart3 },
   { href: '/signals', label: 'Signals', icon: Radio },
   { href: '/gainers-losers', label: 'Movers', icon: TrendingUp },
+  { href: '/journal', label: 'Journal', icon: BookOpen },
   { href: '/watchlist', label: 'Watch', icon: Star },
   { href: '/settings', label: 'API', icon: Settings },
   { href: '/admin', label: 'Admin', icon: Shield },

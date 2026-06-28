@@ -1,6 +1,6 @@
-import { AlertType } from '@prisma/client';
+import { AlertType } from '../../lib/db/types';
+import { db } from '../../lib/db';
 import { env } from '../../config/env';
-import { prisma } from '../../lib/prisma';
 import { publish } from '../../lib/redis';
 import type { MarketSnapshot, OpportunityResult } from '../../types';
 
@@ -23,7 +23,6 @@ class AlertEngine {
     const alerts: Array<{ type: AlertType; title: string; message: string }> = [];
 
     if (prev) {
-      // New Strong Long/Short signals
       if (
         opportunity.signalType === 'STRONG_LONG' &&
         prev.signalType !== 'STRONG_LONG'
@@ -46,7 +45,6 @@ class AlertEngine {
         });
       }
 
-      // OI spike
       const oiDelta = primary.oiChangePct - prev.oiChangePct;
       if (oiDelta >= env.OI_SPIKE_THRESHOLD_PCT) {
         alerts.push({
@@ -56,7 +54,6 @@ class AlertEngine {
         });
       }
 
-      // Volume spike
       const volDelta = primary.volumeChangePct - prev.volumeChangePct;
       if (volDelta >= env.VOLUME_SPIKE_THRESHOLD_PCT) {
         alerts.push({
@@ -66,7 +63,6 @@ class AlertEngine {
         });
       }
 
-      // Funding rate flip
       const wasPositive = prev.fundingRate > env.FUNDING_FLIP_THRESHOLD;
       const wasNegative = prev.fundingRate < -env.FUNDING_FLIP_THRESHOLD;
       const isPositive = snapshot.fundingRate > env.FUNDING_FLIP_THRESHOLD;
@@ -90,11 +86,7 @@ class AlertEngine {
 
     if (alerts.length === 0) return;
 
-    // Notify users with matching alert settings
-    const users = await prisma.user.findMany({
-      where: { isActive: true },
-      include: { alertSettings: true },
-    });
+    const users = await db.users.findActiveWithAlertSettings();
 
     for (const alert of alerts) {
       for (const user of users) {
@@ -104,17 +96,15 @@ class AlertEngine {
         const enabled = this.isAlertEnabled(alert.type, settings);
         if (!enabled) continue;
 
-        await prisma.alert.create({
-          data: {
-            userId: user.id,
-            symbolId: snapshot.symbolId,
-            alertType: alert.type,
-            title: alert.title,
-            message: alert.message,
-            metadata: {
-              opportunityScore: opportunity.opportunityScore,
-              signalType: opportunity.signalType,
-            },
+        await db.alerts.create({
+          userId: user.id,
+          symbolId: snapshot.symbolId,
+          alertType: alert.type,
+          title: alert.title,
+          message: alert.message,
+          metadata: {
+            opportunityScore: opportunity.opportunityScore,
+            signalType: opportunity.signalType,
           },
         });
 

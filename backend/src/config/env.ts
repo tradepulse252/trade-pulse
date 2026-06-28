@@ -1,12 +1,17 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { Timeframe } from '../lib/db/types';
 
 dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4000),
-  DATABASE_URL: z.string(),
+  /** Firebase / Firestore (replaces PostgreSQL) */
+  FIREBASE_PROJECT_ID: z.string().optional().default(''),
+  FIREBASE_CLIENT_EMAIL: z.string().optional().default(''),
+  FIREBASE_PRIVATE_KEY: z.string().optional().default(''),
+  FIRESTORE_DATABASE_ID: z.string().optional().default('(default)'),
   REDIS_URL: z.string().optional().default(''),
   JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
@@ -80,13 +85,13 @@ export const TIMEFRAME_MS: Record<TimeframeKey, number> = {
   '7d': 7 * 24 * 60 * 60 * 1000,
 };
 
-export const TIMEFRAME_TO_PRISMA = {
-  '5m': 'M5',
-  '15m': 'M15',
-  '30m': 'M30',
-  '1h': 'H1',
-  '2h': 'H2',
-  '4h': 'H4',
-  '24h': 'H24',
-  '7d': 'D7',
-} as const;
+export const TIMEFRAME_TO_DB: Record<TimeframeKey, Timeframe> = {
+  '5m': Timeframe.M5,
+  '15m': Timeframe.M15,
+  '30m': Timeframe.M30,
+  '1h': Timeframe.H1,
+  '2h': Timeframe.H2,
+  '4h': Timeframe.H4,
+  '24h': Timeframe.H24,
+  '7d': Timeframe.D7,
+};

@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { SignalType } from '@prisma/client';
+import { SignalType } from '../lib/db/types';
 import { z } from 'zod';
 import { env } from '../config/env';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 import { cacheGet } from '../lib/redis';
 import { ingestionService } from '../services/data/ingestion-service';
 import type { DashboardFilters, OpportunityResult } from '../types';
@@ -88,40 +88,37 @@ router.get('/', async (req: Request, res: Response) => {
     return;
   }
 
-  const where: Record<string, unknown> = { isActive: true };
-  if (filters.signalType) where.signalType = filters.signalType;
-  if (filters.minScore) where.opportunityScore = { gte: filters.minScore };
-  if (filters.minOi) where.openInterest = { gte: filters.minOi };
-  if (filters.minVolume) where.volumeUsdt = { gte: filters.minVolume };
-  if (filters.fundingRateMin !== undefined || filters.fundingRateMax !== undefined) {
-    where.fundingRate = {
-      ...(filters.fundingRateMin !== undefined && { gte: filters.fundingRateMin }),
-      ...(filters.fundingRateMax !== undefined && { lte: filters.fundingRateMax }),
-    };
-  }
-
-  const signals = await prisma.signal.findMany({
-    where,
-    include: { symbol: { select: { symbol: true, baseAsset: true } } },
-    orderBy: { opportunityScore: 'desc' },
-    take: filters.limit ?? 50,
+  const signals = await db.signals.findMany({
+    isActive: true,
+    signalType: filters.signalType,
+    minScore: filters.minScore,
+    minOi: filters.minOi,
+    minVolume: filters.minVolume,
+    fundingRateMin: filters.fundingRateMin,
+    fundingRateMax: filters.fundingRateMax,
+    limit: filters.limit ?? 50,
   });
 
-  let results = signals.map((s) => ({
-    symbol: s.symbol.symbol,
-    symbolId: s.symbolId,
-    signalType: s.signalType,
-    opportunityScore: Number(s.opportunityScore),
-    price: Number(s.price),
-    openInterest: Number(s.openInterest),
-    oiChangePct: Number(s.oiChangePct),
-    volumeUsdt: Number(s.volumeUsdt),
-    volumeChangePct: Number(s.volumeChangePct),
-    fundingRate: Number(s.fundingRate),
-    priceMomentum: Number(s.priceMomentum),
-    rank: s.rank ?? undefined,
-    growthMatrix: {},
-  }));
+  let results = await Promise.all(
+    signals.map(async (s) => {
+      const symbol = await db.symbols.findById(s.symbolId);
+      return {
+        symbol: symbol?.symbol ?? s.symbolId,
+        symbolId: s.symbolId,
+        signalType: s.signalType,
+        opportunityScore: s.opportunityScore,
+        price: s.price,
+        openInterest: s.openInterest,
+        oiChangePct: s.oiChangePct,
+        volumeUsdt: s.volumeUsdt,
+        volumeChangePct: s.volumeChangePct,
+        fundingRate: s.fundingRate,
+        priceMomentum: s.priceMomentum,
+        rank: s.rank ?? undefined,
+        growthMatrix: {},
+      };
+    })
+  );
 
   if (filters.symbols?.length) {
     results = results.filter((r) => filters.symbols!.includes(r.symbol));

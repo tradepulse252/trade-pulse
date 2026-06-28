@@ -1,5 +1,4 @@
-import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 
 export async function logError(
   source: string,
@@ -9,14 +8,12 @@ export async function logError(
 ): Promise<void> {
   console.error(`[${source}] ${message}`, metadata ?? '');
   try {
-    await prisma.errorLog.create({
-      data: {
-        source,
-        level: 'error',
-        message,
-        stack,
-        metadata: metadata as Prisma.InputJsonValue | undefined,
-      },
+    await db.errorLogs.create({
+      source,
+      level: 'error',
+      message,
+      stack,
+      metadata,
     });
   } catch {
     // Avoid recursive logging failures

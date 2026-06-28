@@ -1,28 +1,13 @@
-import { prisma } from '../../lib/prisma';
+import { getFirebaseApp, initFirebase } from '../../lib/firebase';
+import { db } from '../../lib/db';
 import { tryConnectRedis } from '../../lib/redis';
 
-let firebaseApp: import('firebase-admin').app.App | null = null;
-
 export async function initPushNotifications(): Promise<void> {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!projectId || !clientEmail || !privateKey) {
+  await initFirebase();
+  if (getFirebaseApp()) {
+    console.log('[push] Firebase messaging ready');
+  } else {
     console.warn('[push] Firebase not configured — push notifications disabled');
-    return;
-  }
-
-  try {
-    const admin = await import('firebase-admin');
-    if (!admin.apps.length) {
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
-      });
-    }
-    console.log('[push] Firebase initialized');
-  } catch (error) {
-    console.warn('[push] Firebase init failed:', (error as Error).message);
   }
 }
 
@@ -32,7 +17,7 @@ export async function sendPushNotification(
   body: string,
   data?: Record<string, string>
 ): Promise<boolean> {
-  if (!firebaseApp) return false;
+  if (!getFirebaseApp()) return false;
 
   try {
     const admin = await import('firebase-admin');
@@ -70,10 +55,7 @@ export async function processPushQueue(): Promise<void> {
       };
       const sent = await sendPushNotification(token, title, body, data);
       if (sent) {
-        await prisma.alert.updateMany({
-          where: { title, isPushed: false },
-          data: { isPushed: true },
-        });
+        await db.alerts.markPushedByTitle(title);
       }
     } catch {
       // ignore malformed messages

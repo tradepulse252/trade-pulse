@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 import { env } from '../config/env';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { sendPasswordResetEmail, sendWelcomeVerificationEmail } from '../services/email/email-service';
@@ -65,7 +65,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 
   const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await db.users.findByEmail(email);
 
   if (existing?.emailVerified) {
     res.status(409).json({ error: 'Email already registered' });
@@ -78,29 +78,28 @@ router.post('/register', async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const user = existing
-    ? await prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          passwordHash,
-          name: parsed.data.name ?? existing.name,
-          verifyToken,
-          verifyCode,
-          verifyExpiresAt,
-          emailVerified: false,
-        },
+    ? await db.users.update(existing.id, {
+        passwordHash,
+        name: parsed.data.name ?? existing.name,
+        verifyToken,
+        verifyCode,
+        verifyExpiresAt,
+        emailVerified: false,
       })
-    : await prisma.user.create({
-        data: {
-          email,
-          passwordHash,
-          name: parsed.data.name,
-          emailVerified: false,
-          verifyToken,
-          verifyCode,
-          verifyExpiresAt,
-          alertSettings: { create: {} },
-        },
+    : await db.users.create({
+        email,
+        passwordHash,
+        name: parsed.data.name,
+        emailVerified: false,
+        verifyToken,
+        verifyCode,
+        verifyExpiresAt,
       });
+
+  if (!user) {
+    res.status(500).json({ error: 'Failed to create account' });
+    return;
+  }
 
   try {
     await sendWelcomeVerificationEmail({
@@ -130,13 +129,10 @@ router.post('/verify-email', async (req: Request, res: Response) => {
 
   const { code, token, email } = parsed.data;
   const user = token
-    ? await prisma.user.findUnique({ where: { verifyToken: token } })
-    : await prisma.user.findFirst({
-        where: {
-          email: email?.toLowerCase(),
-          verifyCode: code,
-        },
-      });
+    ? await db.users.findByVerifyToken(token)
+    : email && code
+      ? await db.users.findByEmailAndVerifyCode(email, code)
+      : null;
 
   if (!user) {
     res.status(400).json({ error: 'Invalid or expired activation code' });
@@ -148,15 +144,17 @@ router.post('/verify-email', async (req: Request, res: Response) => {
     return;
   }
 
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      emailVerified: true,
-      verifyToken: null,
-      verifyCode: null,
-      verifyExpiresAt: null,
-    },
+  const updated = await db.users.update(user.id, {
+    emailVerified: true,
+    verifyToken: null,
+    verifyCode: null,
+    verifyExpiresAt: null,
   });
+
+  if (!updated) {
+    res.status(500).json({ error: 'Verification failed' });
+    return;
+  }
 
   const jwtToken = jwt.sign({ userId: updated.id, role: updated.role }, env.JWT_SECRET, { expiresIn: '7d' });
   res.json({
@@ -173,7 +171,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+  const user = await db.users.findByEmail(parsed.data.email.toLowerCase());
   if (!user || user.emailVerified) {
     res.json({ message: 'If an unverified account exists, a new activation email has been sent.' });
     return;
@@ -182,13 +180,10 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
   const verifyToken = generateSecureToken();
   const verifyCode = generateSixDigitCode();
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      verifyToken,
-      verifyCode,
-      verifyExpiresAt: verificationExpiry(),
-    },
+  await db.users.update(user.id, {
+    verifyToken,
+    verifyCode,
+    verifyExpiresAt: verificationExpiry(),
   });
 
   try {
@@ -213,7 +208,7 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+  const user = await db.users.findByEmail(parsed.data.email.toLowerCase());
   if (!user || !user.isActive) {
     res.status(401).json({ error: 'Invalid credentials' });
     return;
@@ -234,7 +229,7 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  await db.users.update(user.id, { lastLoginAt: new Date() });
 
   const token = jwt.sign({ userId: user.id, role: user.role }, env.JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: authUserPayload(user) });
@@ -248,19 +243,16 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
   }
 
   const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await db.users.findByEmail(email);
 
   if (user && user.emailVerified) {
     const resetToken = generateSecureToken();
     const resetCode = generateSixDigitCode();
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetToken,
-        resetCode,
-        resetExpiresAt: resetExpiry(),
-      },
+    await db.users.update(user.id, {
+      resetToken,
+      resetCode,
+      resetExpiresAt: resetExpiry(),
     });
 
     try {
@@ -290,13 +282,10 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
   const { code, token, email, password } = parsed.data;
   const user = token
-    ? await prisma.user.findUnique({ where: { resetToken: token } })
-    : await prisma.user.findFirst({
-        where: {
-          email: email?.toLowerCase(),
-          resetCode: code,
-        },
-      });
+    ? await db.users.findByResetToken(token)
+    : email && code
+      ? await db.users.findByEmailAndResetCode(email, code)
+      : null;
 
   if (!user) {
     res.status(400).json({ error: 'Invalid or expired reset code' });
@@ -309,36 +298,32 @@ router.post('/reset-password', async (req: Request, res: Response) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash,
-      resetToken: null,
-      resetCode: null,
-      resetExpiresAt: null,
-    },
+  await db.users.update(user.id, {
+    passwordHash,
+    resetToken: null,
+    resetCode: null,
+    resetExpiresAt: null,
   });
 
   res.json({ message: 'Password updated successfully. You can now sign in.' });
 });
 
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      emailVerified: true,
-      createdAt: true,
-    },
-  });
+  const user = await db.users.findById(req.userId!);
   if (!user) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  res.json({ user });
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+    },
+  });
 });
 
 export default router;

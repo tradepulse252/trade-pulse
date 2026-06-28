@@ -11,6 +11,7 @@ import { ingestionService } from './services/data/ingestion-service';
 import { tryConnectRedis } from './lib/redis';
 import { initPushNotifications, processPushQueue } from './services/notifications/push-service';
 import { aggregationService } from './services/exchanges/aggregation-service';
+import { db } from './lib/db';
 
 const app = express();
 const server = createServer(app);
@@ -43,6 +44,13 @@ app.use(errorHandler);
 initWebSocketServer(server);
 
 async function bootstrap() {
+  const dbReady = await db.init();
+  if (dbReady) {
+    console.log('✅ Firestore connected');
+  } else {
+    console.warn('⚠️  Firestore unavailable — user/market persistence disabled');
+  }
+
   if (await tryConnectRedis()) {
     console.log('✅ Redis connected');
   } else {
