@@ -13,11 +13,33 @@ import { initPushNotifications, processPushQueue } from './services/notification
 import { aggregationService } from './services/exchanges/aggregation-service';
 import { db } from './lib/db';
 
+function corsOrigins(): string[] {
+  const raw = [env.CORS_ORIGIN, env.FRONTEND_URL].filter(Boolean).join(',');
+  return [...new Set(raw.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean))];
+}
+
 const app = express();
 const server = createServer(app);
+const allowedOrigins = corsOrigins();
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = origin.replace(/\/$/, '');
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(normalized)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const limiter = rateLimit({
@@ -72,7 +94,7 @@ async function bootstrap() {
   });
 
   void startIngestion();
-  setTimeout(() => aggregationService.start(), 20_000);
+  setTimeout(() => aggregationService.start(), env.NODE_ENV === 'production' ? 3_000 : 20_000);
   // Avoid aggressive restart loops — reduces Render service-initiated traffic
   setInterval(() => {
     const hasAggregation = aggregationService.getMarkets().length > 0;

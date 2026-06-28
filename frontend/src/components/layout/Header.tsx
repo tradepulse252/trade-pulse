@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Activity, BarChart3, Shield, Wifi, WifiOff, Star, LogIn, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { filterNavForUser } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -11,16 +12,17 @@ interface HeaderProps {
   connected?: boolean;
 }
 
-const navItems = [
+const navItemsBase = [
   { href: '/', label: 'Dashboard', icon: BarChart3 },
   { href: '/watchlist', label: 'Watchlist', icon: Star },
   { href: '/settings', label: 'API', icon: Settings },
-  { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 
 export function Header({ connected }: HeaderProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const navItems = filterNavForUser(navItemsBase, user);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-xl">

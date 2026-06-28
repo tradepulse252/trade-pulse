@@ -306,6 +306,7 @@ export async function getHealth(): Promise<{
   connectedClients: number;
   uptime: number;
   timestamp: string;
+  source?: string;
 }> {
   return fetchApi('/health');
 }

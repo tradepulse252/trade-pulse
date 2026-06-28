@@ -15,6 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { filterNavForUser } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 
 const mainNav = [
@@ -24,12 +25,13 @@ const mainNav = [
   { href: '/journal', label: 'Trade Journal', icon: BookOpen },
   { href: '/watchlist', label: 'Watchlist', icon: Star },
   { href: '/settings', label: 'API', icon: Settings },
-  { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const navItems = filterNavForUser(mainNav, user);
 
   return (
     <aside className="hidden md:flex w-[72px] shrink-0 flex-col items-center border-r border-white/[0.06] bg-background/95 py-5 gap-2">
@@ -38,7 +40,7 @@ export function Sidebar() {
       </Link>
 
       <nav className="flex flex-1 flex-col items-center gap-1.5">
-        {mainNav.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link

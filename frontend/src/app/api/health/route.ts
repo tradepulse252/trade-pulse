@@ -2,7 +2,22 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const RENDER_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://tradepulse-api.onrender.com';
+
 export async function GET() {
+  try {
+    const res = await fetch(`${RENDER_API.replace(/\/$/, '')}/api/health`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return NextResponse.json(data);
+    }
+  } catch {
+    // fall through to stub
+  }
+
   return NextResponse.json({
     status: 'healthy',
     restApi: 'degraded',

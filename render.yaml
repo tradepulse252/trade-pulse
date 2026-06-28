@@ -15,7 +15,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FIREBASE_PROJECT_ID
-        sync: false
+        value: muchocoffee-tradepulse252
       - key: FIREBASE_CLIENT_EMAIL
         sync: false
       - key: FIREBASE_PRIVATE_KEY
@@ -25,7 +25,19 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        sync: false
+        value: https://frontend-omega-two-31.vercel.app
+      - key: FRONTEND_URL
+        value: https://frontend-omega-two-31.vercel.app
+      - key: EMAIL_USE_SMTP
+        value: "false"
+      - key: PERSIST_MARKET_DATA
+        value: "false"
+      - key: AGGREGATION_REFRESH_MS
+        value: "90000"
+      - key: BINANCE_REST_FALLBACK_MS
+        value: "120000"
+      - key: BINANCE_ENABLE_OI_BATCH
+        value: "false"
       - key: BINANCE_REST_BASE
         value: https://fapi.binance.com
       - key: BINANCE_WS_BASE
@@ -35,12 +47,16 @@ services:
       - key: MIN_OPEN_INTEREST_USDT
         value: "500000"
       - key: SCORING_INTERVAL_MS
-        value: "5000"
+        value: "10000"
       - key: OI_REFRESH_INTERVAL_MS
-        value: "60000"
+        value: "300000"
       - key: REDIS_URL
         sync: false
       - key: BINANCE_API_KEY
         sync: false
       - key: BINANCE_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_ADDRESS
         sync: false

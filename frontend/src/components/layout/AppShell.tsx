@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BarChart3, Star, Settings, Shield, Radio, TrendingUp, BookOpen } from 'lucide-react';
 import { SearchProvider } from '@/contexts/SearchContext';
+import { useAuth } from '@/hooks/useAuth';
+import { filterNavForUser } from '@/lib/nav';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { cn } from '@/lib/utils';
@@ -20,11 +22,13 @@ const mobileNav = [
   { href: '/journal', label: 'Journal', icon: BookOpen },
   { href: '/watchlist', label: 'Watch', icon: Star },
   { href: '/settings', label: 'API', icon: Settings },
-  { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 
 export function AppShell({ children, connected }: AppShellProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const navItems = filterNavForUser(mobileNav, user);
 
   return (
     <SearchProvider>
@@ -33,7 +37,7 @@ export function AppShell({ children, connected }: AppShellProps) {
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar connected={connected} />
           <nav className="md:hidden flex border-b border-white/[0.06] bg-background/95 px-2 py-1.5 gap-1 overflow-x-auto">
-            {mobileNav.map(({ href, label, icon: Icon }) => (
+            {navItems.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
