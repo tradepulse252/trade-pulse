@@ -95,7 +95,7 @@ async function bootstrap() {
 
   void startIngestion();
   setTimeout(() => aggregationService.start(), env.NODE_ENV === 'production' ? 3_000 : 20_000);
-  // Avoid aggressive restart loops — reduces Render service-initiated traffic
+  // Avoid aggressive restart loops on cloud free tiers
   setInterval(() => {
     const hasAggregation = aggregationService.getMarkets().length > 0;
     if (hasAggregation) return;

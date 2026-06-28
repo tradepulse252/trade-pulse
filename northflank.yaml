@@ -1,0 +1,58 @@
+# Northflank — Trade-Pulse Backend (replaces Render)
+
+Use this file as a quick reference when creating the service manually in Northflank UI.
+
+## Service: tradepulse-api
+
+| Setting | Value |
+|---------|-------|
+| **Type** | Combined build + deployment (or Build → Deploy) |
+| **Repository** | `tradepulse252/trade-pulse` |
+| **Branch** | `main` |
+| **Docker context** | `/backend` |
+| **Dockerfile** | `/backend/Dockerfile` |
+| **Port** | `4000` (HTTP, public) |
+| **Health check** | `GET /api/health` |
+
+## Required secrets (Secret Group → link to service)
+
+| Variable | Value |
+|----------|-------|
+| `JWT_SECRET` | Random 64+ chars |
+| `FIREBASE_PROJECT_ID` | `muchocoffee-tradepulse252` |
+| `FIREBASE_CLIENT_EMAIL` | Firebase service account email |
+| `FIREBASE_PRIVATE_KEY` | Firebase private key (with `\n`) |
+| `CORS_ORIGIN` | Your Vercel URL |
+| `FRONTEND_URL` | Same as CORS |
+| `EMAIL_USE_SMTP` | `false` |
+| `PERSIST_MARKET_DATA` | `false` |
+| `RESEND_API_KEY` | Optional — for auth emails |
+| `RESEND_FROM_ADDRESS` | e.g. `noreply@tradepulse.io` |
+
+## Optional
+
+| Variable | Value |
+|----------|-------|
+| `REDIS_URL` | Upstash Redis URL |
+| `BINANCE_API_KEY` | Optional |
+| `BINANCE_API_SECRET` | Optional |
+
+## One-click template
+
+Import `.northflank/template.json` in Northflank → **Templates** → **Create from JSON**.
+
+After deploy, copy the public URL (e.g. `https://tradepulse-api--tradepulse.code.run`) and set on Vercel:
+
+- `NEXT_PUBLIC_API_URL` = `https://YOUR-NORTHFLANK-URL`
+- `NEXT_PUBLIC_WS_URL` = `wss://YOUR-NORTHFLANK-URL`
+
+## GitHub Actions (optional)
+
+Add repository secrets:
+
+- `NORTHFLANK_API_KEY`
+- `NORTHFLANK_PROJECT_ID`
+- `NORTHFLANK_BUILD_SERVICE_ID`
+- `NORTHFLANK_SERVICE_ID`
+
+Pushes to `main` under `backend/` trigger `.github/workflows/deploy-northflank.yml`.

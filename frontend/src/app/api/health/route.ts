@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const RENDER_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://tradepulse-api.onrender.com';
+const BACKEND_API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export async function GET() {
   try {
-    const res = await fetch(`${RENDER_API.replace(/\/$/, '')}/api/health`, {
+    const res = await fetch(`${BACKEND_API.replace(/\/$/, '')}/api/health`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
     });

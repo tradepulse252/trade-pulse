@@ -1,209 +1,147 @@
-# Deploy Trade-Pulse FREE (Easiest Path)
+# Deploy Trade-Pulse FREE (Vercel + Northflank + Firestore)
 
-Deploy the full app online for **$0/month** using free tiers.
+Deploy the full app online using free/low-cost tiers.
 
-| Service | Hosts | Free Tier |
-|---------|-------|-----------|
-| **GitHub** | Your code (edit online) | Unlimited public repos |
-| **Vercel** | Next.js frontend | Free forever |
-| **Render** | Node.js backend + WebSocket | 750 hrs/month free |
-| **Neon** | PostgreSQL database | 0.5 GB free |
-| **Upstash** | Redis (optional) | 10k commands/day free |
+| Service | Hosts | Role |
+|---------|-------|------|
+| **GitHub** | Source code | Version control |
+| **Vercel** | Next.js frontend | Dashboard, Signals, Journal UI |
+| **Northflank** | Docker backend + WebSocket | API, auth, journal CRUD |
+| **Firebase Firestore** | Database | Users, journal, watchlist |
+| **Upstash** | Redis (optional) | Cache |
 
-> **Total time:** ~20 minutes · **Cost:** $0
+> **Total time:** ~25 minutes · **Cost:** $0–low (Northflank free trial / pay-as-you-go)
 
 ---
 
-## Step 1 — Put Code on GitHub (code online)
+## Step 1 — GitHub
 
-1. Create account at [github.com](https://github.com)
-2. Create a new repository: `trade-pulse` (Public)
-3. Push your project:
+Repo: [github.com/tradepulse252/trade-pulse](https://github.com/tradepulse252/trade-pulse)
+
+Push latest `main` before deploying.
+
+---
+
+## Step 2 — Firebase Firestore
+
+1. Project: `muchocoffee-tradepulse252` (or create your own)
+2. Enable Firestore (production mode)
+3. Deploy rules/indexes from repo root:
 
 ```bash
-cd C:\Users\HP\OneDrive\Documents\TradePulse
-git init
-git add .
-git commit -m "Trade-Pulse initial deploy"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/trade-pulse.git
-git push -u origin main
+npx firebase-tools deploy --only firestore --project muchocoffee-tradepulse252
 ```
 
-**Edit code online:** Open your repo on GitHub → press `.` (dot) to open the web editor, or use **GitHub Codespaces** (free 60 hrs/month).
+4. Create a **service account** → download JSON → note:
+   - `project_id`
+   - `client_email`
+   - `private_key`
+
+5. Seed admin user (local, with env set):
+
+```bash
+cd backend
+# set FIREBASE_* and ADMIN_EMAIL / ADMIN_PASSWORD in .env
+npm run db:seed
+```
 
 ---
 
-## Step 2 — Free Database (Neon)
+## Step 3 — Deploy Backend (Northflank)
 
-1. Go to [neon.tech](https://neon.tech) → Sign up free
-2. Create project: `tradepulse`
-3. Copy the connection string:
-   ```
-   postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
-   ```
-4. Save it — you'll use this as `DATABASE_URL`
+### Option A — Import template (fastest)
+
+1. Go to [northflank.com](https://northflank.com) → sign up
+2. **Templates** → **Create** → paste `.northflank/template.json`
+3. Set arguments:
+   - `frontendUrl` = your Vercel URL
+   - `firebaseProjectId` = your Firebase project
+4. Add secrets in the Secret Group after creation:
+   - `JWT_SECRET`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+   - `RESEND_API_KEY` (optional)
+5. Run template → wait for build + deploy
+6. Copy public URL, e.g. `https://tradepulse-api--tradepulse.code.run`
+
+See also `northflank.yaml` for manual UI settings.
+
+### Option B — Manual service
+
+1. **New project** → `tradepulse`
+2. **Build service** → GitHub repo → branch `main`
+   - Dockerfile: `/backend/Dockerfile`
+   - Work dir: `/backend`
+3. **Deployment service** → deploy from build → port **4000**
+4. Health check: `/api/health`
+5. Add env vars from `northflank.yaml`
 
 ---
 
-## Step 3 — Deploy Backend (Render) — FREE
+## Step 4 — Deploy Frontend (Vercel)
 
-1. Go to [render.com](https://render.com) → Sign up with GitHub
-2. Click **New +** → **Blueprint** (or **Web Service**)
-3. Connect your `trade-pulse` GitHub repo
-4. If using Blueprint: Render reads `render.yaml` automatically
-5. If manual setup:
+Production URL: **https://frontend-omega-two-31.vercel.app**
 
-| Setting | Value |
-|---------|-------|
-| **Name** | `tradepulse-api` |
-| **Root Directory** | `backend` |
-| **Runtime** | Node |
-| **Build Command** | `npm install && npx prisma generate && npm run build` |
-| **Start Command** | `npx prisma migrate deploy && npm start` |
-| **Plan** | **Free** |
-
-6. Add **Environment Variables**:
+Environment variables (Vercel → Settings → Environment Variables):
 
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | Your Neon connection string |
-| `JWT_SECRET` | Random 64-char string ([generate](https://generate-secret.vercel.app/64)) |
-| `NODE_ENV` | `production` |
-| `CORS_ORIGIN` | `https://YOUR-APP.vercel.app` (fill after Step 4) |
-| `BINANCE_REST_BASE` | `https://fapi.binance.com` |
-| `BINANCE_WS_BASE` | `wss://fstream.binance.com` |
-| `MIN_VOLUME_USDT` | `1000000` |
-| `SCORING_INTERVAL_MS` | `5000` |
+| `NEXT_PUBLIC_API_URL` | `https://YOUR-NORTHFLANK-URL` |
+| `NEXT_PUBLIC_WS_URL` | `wss://YOUR-NORTHFLANK-URL` |
 
-7. Click **Deploy** → wait ~5 min
-8. Copy your backend URL: `https://tradepulse-api.onrender.com`
+Redeploy frontend after saving env vars.
 
-> ⚠️ Free Render sleeps after 15 min idle. First visit takes ~30s to wake up.
+Vercel fallback routes (`/api/markets`, `/api/signals`, `/api/opportunities`) still work if Northflank is briefly unavailable.
 
 ---
 
-## Step 4 — Deploy Frontend (Vercel) — FREE
+## Step 5 — Verify
 
-1. Go to [vercel.com](https://vercel.com) → Sign up with GitHub
-2. Click **Add New Project** → Import `trade-pulse` repo
-3. Configure:
-
-| Setting | Value |
-|---------|-------|
-| **Framework** | Next.js |
-| **Root Directory** | `frontend` |
-| **Build Command** | `npm run build` (default) |
-
-4. Add **Environment Variables**:
-
-| Key | Value |
-|-----|-------|
-| `NEXT_PUBLIC_API_URL` | `https://tradepulse-api.onrender.com` |
-| `NEXT_PUBLIC_WS_URL` | `wss://tradepulse-api.onrender.com` |
-
-5. Click **Deploy** → get URL: `https://trade-pulse-xxx.vercel.app`
-
-6. Go back to **Render** → update `CORS_ORIGIN` to your Vercel URL → redeploy
-
----
-
-## Step 5 — Verify Live
-
-1. Open your Vercel URL
-2. Dashboard should load with live Binance data
-3. Check API: `https://tradepulse-api.onrender.com/api/health`
-4. Check settings: `https://YOUR-APP.vercel.app/settings`
-
----
-
-## Optional: Free Redis (Upstash)
-
-Only needed for caching at scale. App works without it.
-
-1. [upstash.com](https://upstash.com) → Create free Redis database
-2. Copy `REDIS_URL`
-3. Add to Render env: `REDIS_URL=rediss://...`
-
----
-
-## Optional: Binance API Keys
-
-Public market data works without keys. To add your keys:
-
-1. [Binance API Management](https://www.binance.com/en/my/settings/api-management) → Read Only key
-2. Add to Render:
-   - `BINANCE_API_KEY=...`
-   - `BINANCE_API_SECRET=...`
-
----
-
-## Architecture (Free)
-
-```
-User Browser
-    ↓
-Vercel (Frontend)          ← FREE · trade-pulse.vercel.app
-    ↓ API + WebSocket
-Render (Backend)           ← FREE · tradepulse-api.onrender.com
-    ↓                        (sleeps when idle)
-Neon (PostgreSQL)          ← FREE · 0.5GB
-    ↓
-Binance Futures API        ← FREE public endpoints
+```bash
+curl https://YOUR-NORTHFLANK-URL/api/health
+curl https://YOUR-NORTHFLANK-URL/api/markets?limit=3
 ```
 
----
+Frontend:
 
-## Limitations (Free Tier)
-
-| Limit | Impact |
-|-------|--------|
-| Render sleeps after 15 min | First load slow (~30s) |
-| Neon 0.5 GB storage | Enough for months of metrics |
-| Vercel 100 GB bandwidth | Fine for thousands of users |
-| No custom domain on free | Use `.vercel.app` subdomain |
+- Dashboard: `/`
+- Trade Journal: `/journal` (sign in required)
+- Admin: `/admin` (ADMIN role only)
 
 ---
 
-## Upgrade Path (when you grow)
+## Architecture
 
-| Need | Upgrade to |
-|------|-----------|
-| Backend always on | Render Starter $7/mo |
-| More DB storage | Neon Pro $19/mo |
-| Custom domain | Vercel Pro $20/mo |
-| Mobile app | Firebase free tier |
+```
+Vercel (Frontend + fallback API)
+        │
+        ├── REST  → Northflank API (/api/*)
+        ├── WS    → Northflank WebSocket (/ws)
+        └── Auth/Journal → Northflank + Firestore
+
+Firebase Firestore ← Admin SDK (Northflank backend)
+```
 
 ---
 
 ## Troubleshooting
 
-**Dashboard shows "Offline"**
-- Backend is sleeping → visit `https://tradepulse-api.onrender.com/api/health` first
-- Check `NEXT_PUBLIC_API_URL` in Vercel matches Render URL
-
-**CORS error in browser console**
-- Set `CORS_ORIGIN` on Render to exact Vercel URL (no trailing slash)
-
-**Database connection failed**
-- Ensure Neon connection string has `?sslmode=require`
-- Run migrations: Render start command includes `prisma migrate deploy`
-
-**WebSocket not connecting**
-- Use `wss://` not `ws://` in `NEXT_PUBLIC_WS_URL`
-- Render free tier supports WebSockets
+| Issue | Fix |
+|-------|-----|
+| CORS errors | Set `CORS_ORIGIN` on Northflank = exact Vercel URL (no trailing slash) |
+| Journal 401 | Sign in; check `JWT_SECRET` on Northflank |
+| Empty dashboard | Wait ~30s for aggregation; or Vercel fallback loads markets |
+| Email not sent | Set `RESEND_API_KEY` + verified domain; keep `EMAIL_USE_SMTP=false` |
+| Admin nav missing | User must have `ADMIN` role (run `db:seed`) |
 
 ---
 
-## One-Command Local Test Before Deploy
+## Optional: Redis (Upstash)
 
-```bash
-# Test production build locally
-cd backend && npm run build && npm start
-cd frontend && npm run build && npm start
-```
+1. Create free Redis at [upstash.com](https://upstash.com)
+2. Add `REDIS_URL` to Northflank secret group
+3. Redeploy backend
 
-Your app will be live at:
-- **Frontend:** `https://your-app.vercel.app`
-- **API:** `https://tradepulse-api.onrender.com`
-- **Code:** `https://github.com/your-username/trade-pulse`
+---
+
+## Migrate from Render
+
+Render is **no longer used**. Remove `tradepulse-api` on Render if still present. Update any bookmarks from `*.onrender.com` to your Northflank URL.

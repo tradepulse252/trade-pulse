@@ -1,0 +1,195 @@
+{
+  "apiVersion": "v1.2",
+  "name": "tradepulse-backend",
+  "description": "Trade-Pulse Express API + WebSocket on Northflank (replaces Render)",
+  "arguments": {
+    "projectName": {
+      "type": "string",
+      "default": "tradepulse"
+    },
+    "githubRepo": {
+      "type": "string",
+      "default": "https://github.com/tradepulse252/trade-pulse"
+    },
+    "githubBranch": {
+      "type": "string",
+      "default": "main"
+    },
+    "frontendUrl": {
+      "type": "string",
+      "default": "https://frontend-omega-two-31.vercel.app"
+    },
+    "firebaseProjectId": {
+      "type": "string",
+      "default": "muchocoffee-tradepulse252"
+    }
+  },
+  "options": {
+    "autorun": false,
+    "concurrencyPolicy": "forbid"
+  },
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "context": {},
+      "steps": [
+        {
+          "kind": "Project",
+          "ref": "project",
+          "spec": {
+            "name": "${args.projectName}",
+            "description": "Trade-Pulse production",
+            "region": "europe-west"
+          }
+        },
+        {
+          "kind": "Workflow",
+          "spec": {
+            "type": "sequential",
+            "context": {
+              "projectId": "${refs.project.id}"
+            },
+            "steps": [
+              {
+                "kind": "SecretGroup",
+                "ref": "apiSecrets",
+                "spec": {
+                  "name": "tradepulse-api-secrets",
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "restrictions": {
+                    "restricted": true,
+                    "nfObjects": [
+                      {
+                        "id": "${refs.buildService.id}",
+                        "type": "service"
+                      },
+                      {
+                        "id": "${refs.deploymentService.id}",
+                        "type": "service"
+                      }
+                    ]
+                  },
+                  "secrets": {
+                    "variables": {
+                      "NODE_ENV": "production",
+                      "PORT": "4000",
+                      "FIREBASE_PROJECT_ID": "${args.firebaseProjectId}",
+                      "FIRESTORE_DATABASE_ID": "(default)",
+                      "CORS_ORIGIN": "${args.frontendUrl}",
+                      "FRONTEND_URL": "${args.frontendUrl}",
+                      "EMAIL_USE_SMTP": "false",
+                      "PERSIST_MARKET_DATA": "false",
+                      "AGGREGATION_REFRESH_MS": "90000",
+                      "BINANCE_REST_FALLBACK_MS": "120000",
+                      "BINANCE_ENABLE_OI_BATCH": "false",
+                      "BINANCE_REST_BASE": "https://fapi.binance.com",
+                      "BINANCE_WS_BASE": "wss://fstream.binance.com",
+                      "MIN_VOLUME_USDT": "1000000",
+                      "MIN_OPEN_INTEREST_USDT": "500000",
+                      "SCORING_INTERVAL_MS": "10000",
+                      "OI_REFRESH_INTERVAL_MS": "300000"
+                    },
+                    "files": {}
+                  }
+                }
+              },
+              {
+                "kind": "BuildService",
+                "ref": "buildService",
+                "spec": {
+                  "name": "tradepulse-api-build",
+                  "billing": {
+                    "deploymentPlan": "nf-compute-20"
+                  },
+                  "vcsData": {
+                    "projectUrl": "${args.githubRepo}",
+                    "projectType": "github",
+                    "projectBranch": "${args.githubBranch}"
+                  },
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "kaniko",
+                      "useCache": true,
+                      "dockerWorkDir": "/backend",
+                      "dockerFilePath": "/backend/Dockerfile"
+                    }
+                  },
+                  "disabledCI": false
+                }
+              },
+              {
+                "kind": "DeploymentService",
+                "ref": "deploymentService",
+                "spec": {
+                  "name": "tradepulse-api",
+                  "billing": {
+                    "deploymentPlan": "nf-compute-20"
+                  },
+                  "deployment": {
+                    "instances": 1,
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      }
+                    }
+                  },
+                  "ports": [
+                    {
+                      "name": "http",
+                      "internalPort": 4000,
+                      "public": true,
+                      "protocol": "HTTP",
+                      "security": {
+                        "credentials": [],
+                        "policies": []
+                      }
+                    }
+                  ],
+                  "healthChecks": [
+                    {
+                      "protocol": "HTTP",
+                      "type": "readinessProbe",
+                      "path": "/api/health",
+                      "port": 4000,
+                      "initialDelaySeconds": 15,
+                      "periodSeconds": 30,
+                      "timeoutSeconds": 10,
+                      "failureThreshold": 3
+                    }
+                  ],
+                  "autoscaling": {}
+                }
+              },
+              {
+                "kind": "Build",
+                "ref": "initialBuild",
+                "spec": {
+                  "serviceId": "${refs.buildService.id}",
+                  "branch": "${args.githubBranch}"
+                }
+              },
+              {
+                "kind": "Deployment",
+                "ref": "initialDeploy",
+                "spec": {
+                  "serviceId": "${refs.deploymentService.id}",
+                  "internal": {
+                    "id": "${refs.buildService.id}",
+                    "branch": "${args.githubBranch}",
+                    "buildId": "${refs.initialBuild.id}"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

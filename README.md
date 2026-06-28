@@ -16,8 +16,10 @@ The system aggressively searches for and highlights this behavior across all act
 
 ```
 TradePulse/
-├── backend/          # Node.js + Express + TypeScript + Prisma
-├── frontend/         # Next.js 15 (App Router) + Tailwind + ShadCN
+├── backend/          # Node.js + Express + TypeScript + Firestore
+├── frontend/         # Next.js 15 (App Router) + Tailwind
+├── .northflank/      # Northflank deploy template
+├── northflank.yaml   # Northflank service reference
 ├── mobile/           # Flutter (Android/iOS)
 ├── docker-compose.yml
 └── .env.example
@@ -28,12 +30,12 @@ TradePulse/
 | Layer | Technology |
 |-------|-----------|
 | Data Source | Binance Futures REST API + WebSocket Streams |
-| Backend | Node.js, Express, TypeScript, Prisma ORM |
-| Database | PostgreSQL 16 (time-series optimized) |
-| Cache | Redis 7 (pub/sub + caching) |
+| Backend | Node.js, Express, TypeScript, Firebase Admin |
+| Database | Firestore |
+| Cache | Redis 7 (optional — Upstash) |
 | Frontend | Next.js 15, Tailwind CSS, TradingView Lightweight Charts |
 | Mobile | Flutter 3.x, Provider, Firebase Messaging |
-| Infrastructure | Docker, multi-stage builds |
+| Infrastructure | Docker, Northflank, Vercel |
 
 ---
 
@@ -62,22 +64,22 @@ TradePulse/
 
 ## Quick Start (Development)
 
-See **[DEPLOY-FREE.md](DEPLOY-FREE.md)** for the easiest **$0/month** online deployment (Vercel + Render + Neon).
+See **[DEPLOY-FREE.md](DEPLOY-FREE.md)** for production deployment (Vercel + Northflank + Firestore).
 
 ### Local Development
 
 ### Prerequisites
 
 - Node.js 20+
-- PostgreSQL 16
-- Redis 7
+- Firebase project with Firestore (for auth, journal, watchlist)
+- Redis 7 (optional)
 - Docker & Docker Compose (optional)
 
 ### 1. Clone & Configure
 
 ```bash
-cp .env.example .env
-# Edit .env — set JWT_SECRET, DATABASE_URL, etc.
+cp backend/.env.example backend/.env
+# Edit backend/.env — set JWT_SECRET, FIREBASE_*, etc.
 ```
 
 ### 2. Start Infrastructure
@@ -187,18 +189,15 @@ docker compose --profile production up -d --build
 
 ### Database
 
-- [ ] Run `prisma migrate deploy` in production
-- [ ] Enable PostgreSQL connection pooling (PgBouncer for 10k+ users)
-- [ ] Schedule `cleanup_old_snapshots(30)` via pg_cron
-- [ ] Set up automated backups (daily minimum)
-- [ ] Monitor disk usage (time-series data grows fast)
+- [ ] Deploy Firestore rules: `npm run firebase:deploy`
+- [ ] Seed admin user: `npm run db:seed`
+- [ ] Set Firebase credentials on Northflank
 
-### Scaling (10,000+ Concurrent Users)
+### Scaling
 
-- [ ] Deploy multiple backend instances behind a load balancer
+- [ ] Deploy backend on Northflank (see DEPLOY-FREE.md)
 - [ ] Use Redis pub/sub for cross-instance WebSocket broadcasting
-- [ ] Enable PostgreSQL read replicas for dashboard queries
-- [ ] Set up CDN for frontend static assets
+- [ ] Set up CDN for frontend static assets (Vercel)
 - [ ] Configure horizontal pod autoscaling (K8s) or Docker Swarm
 - [ ] Monitor Binance API rate limits (1200 req/min)
 
@@ -227,9 +226,10 @@ Key variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | — |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `FIREBASE_PROJECT_ID` | Firebase / Firestore project | — |
+| `REDIS_URL` | Redis connection string | optional |
 | `JWT_SECRET` | Auth token signing key | — |
+| `NEXT_PUBLIC_API_URL` | Northflank backend URL | `http://localhost:4000` |
 | `MIN_VOLUME_USDT` | Liquidity filter threshold | `1000000` |
 | `MIN_OPEN_INTEREST_USDT` | OI filter threshold | `500000` |
 | `SCORING_INTERVAL_MS` | Scoring engine cycle | `5000` |

@@ -46,7 +46,7 @@ const envSchema = z.object({
   EMAIL_REPLY_TO: z.string().email().default('tradepulse252@gmail.com'),
   GMAIL_USER: z.string().email().default('tradepulse252@gmail.com'),
   GMAIL_APP_PASSWORD: z.string().optional().default(''),
-  /** Set false on Render free tier — outbound SMTP ports 25/465/587 are blocked. */
+  /** Set false on cloud (Northflank) — outbound SMTP is often blocked. Use Resend instead. */
   EMAIL_USE_SMTP: z
     .enum(['true', 'false'])
     .optional()

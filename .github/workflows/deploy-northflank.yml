@@ -1,0 +1,34 @@
+name: Deploy backend to Northflank
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.northflank/**'
+      - '.github/workflows/deploy-northflank.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ secrets.NORTHFLANK_API_KEY != '' && secrets.NORTHFLANK_PROJECT_ID != '' && secrets.NORTHFLANK_SERVICE_ID != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trigger Northflank build
+        uses: northflank/deploy-to-northflank@v1
+        with:
+          northflank-api-key: ${{ secrets.NORTHFLANK_API_KEY }}
+          project-id: ${{ secrets.NORTHFLANK_PROJECT_ID }}
+          service-id: ${{ secrets.NORTHFLANK_BUILD_SERVICE_ID }}
+          image-path: ${{ github.sha }}
+
+      - name: Deploy to Northflank service
+        uses: northflank/deploy-to-northflank@v1
+        with:
+          northflank-api-key: ${{ secrets.NORTHFLANK_API_KEY }}
+          project-id: ${{ secrets.NORTHFLANK_PROJECT_ID }}
+          service-id: ${{ secrets.NORTHFLANK_SERVICE_ID }}
+          image-path: ${{ github.sha }}

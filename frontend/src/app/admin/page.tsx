@@ -104,7 +104,7 @@ export default function AdminPage() {
             {health.source === 'vercel-fallback' && (
               <Card className="border-yellow-500/30 bg-yellow-500/5">
                 <CardContent className="py-3 text-sm text-yellow-200/90">
-                  Showing Vercel fallback health. Full backend metrics require Render API to be online.
+                  Showing Vercel fallback health. Full backend metrics require the Northflank API to be online.
                 </CardContent>
               </Card>
             )}
@@ -187,7 +187,7 @@ export default function AdminPage() {
                       console.info('Admin dashboard', json);
                       alert('Admin API connected. Check browser console for dashboard data.');
                     } else {
-                      alert('Admin API unavailable — ensure Render backend is running with Firebase configured.');
+                      alert('Admin API unavailable — ensure Northflank backend is running with Firebase configured.');
                     }
                   }}
                 >

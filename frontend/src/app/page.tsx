@@ -96,7 +96,7 @@ export default function DashboardPage() {
                   </p>
                   {error.includes('503') || error.includes('suspended') ? (
                     <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                      Render backend may be suspended. Market data should load via Vercel fallback automatically on retry.
+                      Northflank backend may be starting. Market data should load via Vercel fallback automatically on retry.
                     </p>
                   ) : null}
                   <button

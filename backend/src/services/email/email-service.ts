@@ -13,11 +13,11 @@ function getResendClient(): Resend | null {
   return resend;
 }
 
-/** Render free tier blocks SMTP ports — Gmail only works locally or on paid Render. */
+/** Cloud hosts (Northflank, etc.) block SMTP — prefer Resend HTTP API. */
 function canUseSmtp(): boolean {
   if (!env.GMAIL_APP_PASSWORD) return false;
   if (!env.EMAIL_USE_SMTP) return false;
-  if (process.env.RENDER === 'true') return false;
+  if (env.NODE_ENV === 'production' && !env.RESEND_API_KEY) return false;
   return true;
 }
 
@@ -98,7 +98,7 @@ async function sendViaGmail(to: string, subject: string, html: string): Promise<
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const errors: string[] = [];
 
-  // Resend HTTP API works on Render free tier; SMTP ports 465/587 are blocked there.
+  // Resend HTTP API works on cloud hosts where SMTP ports are blocked.
   if (env.RESEND_API_KEY) {
     const resendErr = await sendViaResend(to, subject, html);
     if (!resendErr) {
@@ -117,8 +117,8 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     errors.push(`Gmail: ${gmailErr}`);
   } else if (env.GMAIL_APP_PASSWORD && !env.EMAIL_USE_SMTP) {
     errors.push('Gmail: SMTP disabled (EMAIL_USE_SMTP=false)');
-  } else if (env.GMAIL_APP_PASSWORD && process.env.RENDER === 'true') {
-    errors.push('Gmail: Render blocks outbound SMTP on free tier — use Resend with a verified domain');
+  } else if (env.GMAIL_APP_PASSWORD && env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
+    errors.push('Gmail: use Resend on production cloud — set RESEND_API_KEY and EMAIL_USE_SMTP=false');
   }
 
   if (!env.RESEND_API_KEY && !env.GMAIL_APP_PASSWORD) {

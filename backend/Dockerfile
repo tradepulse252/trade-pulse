@@ -3,9 +3,9 @@ WORKDIR /app
 RUN apk add --no-cache wget
 
 FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production && cp -R node_modules prod_node_modules
-RUN npm ci
+COPY package.json ./
+RUN npm install --omit=dev && cp -R node_modules prod_node_modules
+RUN npm install
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
