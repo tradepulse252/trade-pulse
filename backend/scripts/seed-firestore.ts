@@ -20,14 +20,12 @@ async function main() {
     ? await db.users.update(existing.id, {
         role: UserRole.ADMIN,
         passwordHash,
-        emailVerified: true,
       })
     : await db.users.create({
         email: adminEmail,
         passwordHash,
         name: 'Admin',
         role: UserRole.ADMIN,
-        emailVerified: true,
       });
 
   if (!admin) {

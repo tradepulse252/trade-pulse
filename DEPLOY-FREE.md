@@ -1,4 +1,4 @@
-# Deploy Trade-Pulse FREE (Vercel + Northflank + Firestore)
+# Deploy Trade-Pulse FREE (Vercel + Backend + Firestore)
 
 Deploy the full app online using free/low-cost tiers.
 
@@ -6,11 +6,14 @@ Deploy the full app online using free/low-cost tiers.
 |---------|-------|------|
 | **GitHub** | Source code | Version control |
 | **Vercel** | Next.js frontend | Dashboard, Signals, Journal UI |
-| **Northflank** | Docker backend + WebSocket | API, auth, journal CRUD |
+| **Backend** | **Render** (free) or Northflank | API, auth, journal CRUD, WebSocket |
 | **Firebase Firestore** | Database | Users, journal, watchlist |
 | **Upstash** | Redis (optional) | Cache |
 
-> **Total time:** ~25 minutes · **Cost:** $0–low (Northflank free trial / pay-as-you-go)
+> **Easiest backend (no card):** Render — see **`RENDER-SETUP.md`**  
+> **Alternative:** Northflank — see **`NORTHFLANK-SETUP.md`**
+
+> **Total time:** ~30–45 minutes · **Cost:** $0 on Always Free tiers
 
 ---
 
@@ -142,6 +145,6 @@ Firebase Firestore ← Admin SDK (Northflank backend)
 
 ---
 
-## Migrate from Render
+## Migrate from old Render / Northflank
 
-Render is **no longer used**. Remove `tradepulse-api` on Render if still present. Update any bookmarks from `*.onrender.com` to your Northflank URL.
+If you created a **new Render account**, follow **`RENDER-SETUP.md`**, then update Vercel `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the new `*.onrender.com` URL. Delete the old backend service to avoid confusion.

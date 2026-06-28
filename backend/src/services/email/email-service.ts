@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { logError } from '../../utils/logger';
-import { passwordResetEmail, welcomeVerificationEmail } from './templates';
+import { passwordResetEmail } from './templates';
 
 let resend: Resend | null = null;
 
@@ -131,21 +131,6 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
   throw new Error(
     'Could not send email. Please try again in a few minutes or contact support at tradepulse252@gmail.com.'
   );
-}
-
-export async function sendWelcomeVerificationEmail(params: {
-  to: string;
-  name?: string | null;
-  code: string;
-  token: string;
-}): Promise<void> {
-  const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${params.token}&email=${encodeURIComponent(params.to)}`;
-  const { subject, html } = welcomeVerificationEmail({
-    name: params.name,
-    code: params.code,
-    verifyUrl,
-  });
-  await sendEmail(params.to, subject, html);
 }
 
 export async function sendPasswordResetEmail(params: {

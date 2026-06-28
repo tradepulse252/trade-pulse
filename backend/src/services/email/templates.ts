@@ -43,37 +43,6 @@ function emailLayout({ title, preview, body }: EmailLayoutProps): string {
 </html>`;
 }
 
-export function welcomeVerificationEmail(params: {
-  name?: string | null;
-  code: string;
-  verifyUrl: string;
-}): { subject: string; html: string } {
-  const greeting = params.name ? `Hi ${params.name},` : 'Hi there,';
-  const html = emailLayout({
-    title: 'Welcome to Trade-Pulse',
-    preview: `Your activation code is ${params.code}`,
-    body: `
-      <p style="margin:0 0 16px;color:#f8fafc;font-size:18px;font-weight:600;">Welcome to Trade-Pulse! 🎉</p>
-      <p style="margin:0 0 20px;">${greeting}<br/>Thanks for joining Trade-Pulse. Activate your account to start scanning futures opportunities across Binance, Bybit, OKX &amp; Hyperliquid.</p>
-      <p style="margin:0 0 8px;color:#cbd5e1;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">Your activation code</p>
-      <div style="margin:0 0 24px;padding:16px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:12px;text-align:center;">
-        <span style="font-size:32px;font-weight:700;letter-spacing:0.35em;color:#c4b5fd;font-family:ui-monospace,monospace;">${params.code}</span>
-      </div>
-      <p style="margin:0 0 20px;color:#94a3b8;font-size:13px;">This code expires in 24 hours.</p>
-      <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
-        <tr>
-          <td style="border-radius:10px;background:linear-gradient(135deg,#9333ea,#7c3aed);">
-            <a href="${params.verifyUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600;font-size:15px;">Activate my account</a>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:12px;word-break:break-all;">Or paste this link:<br/><a href="${params.verifyUrl}" style="color:#a78bfa;">${params.verifyUrl}</a></p>
-    `,
-  });
-
-  return { subject: 'Welcome to Trade-Pulse — Activate your account', html };
-}
-
 export function passwordResetEmail(params: {
   name?: string | null;
   code: string;

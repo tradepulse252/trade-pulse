@@ -21,33 +21,10 @@ export const usersRepo = {
     return docWithId(doc.id, doc.data() as UserDoc);
   },
 
-  async findByVerifyToken(token: string) {
-    const snap = await getFirestore()
-      .collection(COLLECTIONS.users)
-      .where('verifyToken', '==', token)
-      .limit(1)
-      .get();
-    if (snap.empty) return null;
-    const doc = snap.docs[0];
-    return docWithId(doc.id, doc.data() as UserDoc);
-  },
-
   async findByResetToken(token: string) {
     const snap = await getFirestore()
       .collection(COLLECTIONS.users)
       .where('resetToken', '==', token)
-      .limit(1)
-      .get();
-    if (snap.empty) return null;
-    const doc = snap.docs[0];
-    return docWithId(doc.id, doc.data() as UserDoc);
-  },
-
-  async findByEmailAndVerifyCode(email: string, code: string) {
-    const snap = await getFirestore()
-      .collection(COLLECTIONS.users)
-      .where('email', '==', email.toLowerCase())
-      .where('verifyCode', '==', code)
       .limit(1)
       .get();
     if (snap.empty) return null;
@@ -71,10 +48,6 @@ export const usersRepo = {
     email: string;
     passwordHash: string;
     name?: string | null;
-    emailVerified?: boolean;
-    verifyToken?: string | null;
-    verifyCode?: string | null;
-    verifyExpiresAt?: Date | null;
     role?: UserRole;
     withDefaultAlertSettings?: boolean;
   }) {
@@ -87,10 +60,6 @@ export const usersRepo = {
       role: data.role ?? UserRole.USER,
       fcmToken: null,
       isActive: true,
-      emailVerified: data.emailVerified ?? false,
-      verifyToken: data.verifyToken ?? null,
-      verifyCode: data.verifyCode ?? null,
-      verifyExpiresAt: data.verifyExpiresAt ?? null,
       resetToken: null,
       resetCode: null,
       resetExpiresAt: null,
@@ -120,10 +89,6 @@ export const usersRepo = {
       email: string;
       passwordHash: string;
       name?: string | null;
-      emailVerified?: boolean;
-      verifyToken?: string | null;
-      verifyCode?: string | null;
-      verifyExpiresAt?: Date | null;
       role?: UserRole;
       withDefaultAlertSettings?: boolean;
     },

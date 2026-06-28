@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Header } from '@/components/layout/Header';
-import { Activity, Mail } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -18,52 +18,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const result = await register(email, password, name || undefined);
-      if (result.requiresVerification) {
-        setSent(true);
-        setTimeout(() => {
-          router.push(`/verify-email?email=${encodeURIComponent(result.email)}`);
-        }, 2500);
-      }
+      await register(email, password, name || undefined);
+      router.push('/');
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
   };
-
-  if (sent) {
-    return (
-      <div className="min-h-screen">
-        <Header />
-        <div className="container mx-auto px-4 py-16 flex justify-center">
-          <Card className="w-full max-w-md text-center">
-            <CardHeader>
-              <div className="mx-auto h-12 w-12 rounded-lg bg-long/20 flex items-center justify-center border border-long/30 mb-2">
-                <Mail className="h-6 w-6 text-long" />
-              </div>
-              <CardTitle>Check your email</CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">
-                We sent a welcome message with your activation code and link to <strong>{email}</strong>.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <Link href={`/verify-email?email=${encodeURIComponent(email)}`}>
-                <Button className="w-full">Enter activation code</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen">

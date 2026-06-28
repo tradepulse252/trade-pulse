@@ -1,0 +1,39 @@
+# Render Blueprint — Trade-Pulse Backend
+# Dashboard: New → Blueprint → connect repo → Render reads this file
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: tradepulse-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FIREBASE_PROJECT_ID
+        value: muchocoffee-tradepulse252
+      - key: FIRESTORE_DATABASE_ID
+        value: (default)
+      - key: CORS_ORIGIN
+        value: https://frontend-omega-two-31.vercel.app
+      - key: FRONTEND_URL
+        value: https://frontend-omega-two-31.vercel.app
+      - key: EMAIL_USE_SMTP
+        value: "false"
+      - key: PERSIST_MARKET_DATA
+        value: "false"
+      - key: RESEND_FROM_ADDRESS
+        value: noreply@tradepulse.io
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

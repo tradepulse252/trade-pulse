@@ -14,6 +14,7 @@
     "firebase:deploy": "firebase deploy --only firestore",
     "deploy:northflank": "powershell -ExecutionPolicy Bypass -File scripts/deploy-northflank.ps1",
     "setup:northflank": "node scripts/setup-northflank-full.mjs",
+    "setup:render": "node scripts/setup-render-full.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:build": "docker compose build"

@@ -55,10 +55,6 @@ model User {
   role          UserRole  @default(USER)
   fcmToken      String?   // Firebase push notification token
   isActive      Boolean   @default(true)
-  emailVerified Boolean   @default(false)
-  verifyToken   String?   @unique
-  verifyCode    String?
-  verifyExpiresAt DateTime?
   resetToken    String?   @unique
   resetCode     String?
   resetExpiresAt DateTime?

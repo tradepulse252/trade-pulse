@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +11,6 @@ import { Activity } from 'lucide-react';
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -26,13 +24,7 @@ export default function LoginPage() {
       await login(email, password);
       window.location.href = '/';
     } catch (err) {
-      const msg = (err as Error).message;
-      if (msg.startsWith('EMAIL_NOT_VERIFIED:')) {
-        const unverifiedEmail = msg.split(':')[1];
-        router.push(`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`);
-        return;
-      }
-      setError(msg);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }

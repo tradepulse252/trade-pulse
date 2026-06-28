@@ -9,7 +9,6 @@ interface User {
   email: string;
   name: string | null;
   role: string;
-  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -17,7 +16,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<{ email: string; requiresVerification: boolean }>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -60,9 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      if (data.code === 'EMAIL_NOT_VERIFIED') {
-        throw new Error(`EMAIL_NOT_VERIFIED:${data.email}`);
-      }
       throw new Error(data.error ?? 'Login failed');
     }
     localStorage.setItem('tp_token', data.token);
@@ -80,7 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       throw new Error(data.error ?? 'Registration failed');
     }
-    return { email: data.email as string, requiresVerification: true as boolean };
+    localStorage.setItem('tp_token', data.token);
+    setToken(data.token);
+    setUser(data.user);
   };
 
   const logout = () => {

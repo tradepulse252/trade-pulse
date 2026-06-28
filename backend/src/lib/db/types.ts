@@ -40,10 +40,6 @@ export interface UserDoc {
   role: UserRole;
   fcmToken: string | null;
   isActive: boolean;
-  emailVerified: boolean;
-  verifyToken: string | null;
-  verifyCode: string | null;
-  verifyExpiresAt: Date | null;
   resetToken: string | null;
   resetCode: string | null;
   resetExpiresAt: Date | null;
