@@ -81,7 +81,7 @@ See also `northflank.yaml` for manual UI settings.
 
 ## Step 4 — Deploy Frontend (Vercel)
 
-Production URL: **https://frontend-omega-two-31.vercel.app**
+Production URL: **https://tradepulse.vercel.app**
 
 Environment variables (Vercel → Settings → Environment Variables):
 

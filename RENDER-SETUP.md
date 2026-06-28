@@ -4,7 +4,7 @@ Deploy the API on your **new Render account**. Frontend stays on **Vercel**, dat
 
 | Layer | Service |
 |-------|---------|
-| Frontend | Vercel — https://frontend-omega-two-31.vercel.app |
+| Frontend | Vercel — https://tradepulse.vercel.app |
 | Backend | Render Web Service (Docker) |
 | Database | Firebase — `muchocoffee-tradepulse252` |
 
@@ -77,8 +77,8 @@ In the service → **Environment**:
 | `FIREBASE_CLIENT_EMAIL` | From Firebase JSON → `client_email` |
 | `FIREBASE_PRIVATE_KEY` | From Firebase JSON → `private_key` |
 | `FIRESTORE_DATABASE_ID` | `(default)` |
-| `CORS_ORIGIN` | `https://frontend-omega-two-31.vercel.app` |
-| `FRONTEND_URL` | `https://frontend-omega-two-31.vercel.app` |
+| `CORS_ORIGIN` | `https://tradepulse.vercel.app` |
+| `FRONTEND_URL` | `https://tradepulse.vercel.app` |
 | `EMAIL_USE_SMTP` | `false` |
 | `PERSIST_MARKET_DATA` | `false` |
 | `RESEND_API_KEY` | Optional |
@@ -167,7 +167,7 @@ Default: `admin@tradepulse.io` / `Admin123!ChangeMe`
 | Check | URL |
 |-------|-----|
 | API health | `https://YOUR-SERVICE.onrender.com/api/health` |
-| Dashboard | https://frontend-omega-two-31.vercel.app |
+| Dashboard | https://tradepulse.vercel.app |
 | Register / Login | Should work immediately (no email verification) |
 | Journal | `/journal` — save a trade |
 

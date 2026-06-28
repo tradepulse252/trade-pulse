@@ -17,7 +17,7 @@
     },
     "frontendUrl": {
       "type": "string",
-      "default": "https://frontend-omega-two-31.vercel.app"
+      "default": "https://tradepulse.vercel.app"
     },
     "firebaseProjectId": {
       "type": "string",

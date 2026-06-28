@@ -22,7 +22,7 @@ const API_KEY = process.env.RENDER_API_KEY;
 const REPO = process.env.RENDER_REPO ?? 'https://github.com/tradepulse252/trade-pulse';
 const BRANCH = process.env.RENDER_BRANCH ?? 'main';
 const FRONTEND_URL =
-  process.env.FRONTEND_URL ?? 'https://frontend-omega-two-31.vercel.app';
+  process.env.FRONTEND_URL ?? 'https://tradepulse.vercel.app';
 const FIREBASE_PROJECT_ID =
   process.env.FIREBASE_PROJECT_ID ?? 'muchocoffee-tradepulse252';
 
