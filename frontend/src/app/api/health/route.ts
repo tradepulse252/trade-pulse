@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getApiUrl } from '@/lib/api-config';
 
 export const dynamic = 'force-dynamic';
 
-const BACKEND_API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const BACKEND_API = getApiUrl();
 
 export async function GET() {
   try {

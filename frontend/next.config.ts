@@ -1,11 +1,18 @@
 import type { NextConfig } from 'next';
 
+const PRODUCTION_API_URL = 'https://tradepulse-api-production.up.railway.app';
+const PRODUCTION_WS_URL = 'wss://tradepulse-api-production.up.railway.app';
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ??
+      (process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : undefined),
+    NEXT_PUBLIC_WS_URL:
+      process.env.NEXT_PUBLIC_WS_URL ??
+      (process.env.NODE_ENV === 'production' ? PRODUCTION_WS_URL : undefined),
   },
 };
 

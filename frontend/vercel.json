@@ -3,5 +3,9 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://tradepulse-api-production.up.railway.app",
+    "NEXT_PUBLIC_WS_URL": "wss://tradepulse-api-production.up.railway.app"
+  }
 }

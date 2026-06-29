@@ -66,19 +66,6 @@ app.use(errorHandler);
 initWebSocketServer(server);
 
 async function bootstrap() {
-  const dbReady = await db.init();
-  if (dbReady) {
-    console.log('✅ Firestore connected');
-  } else {
-    console.warn('⚠️  Firestore unavailable — user/market persistence disabled');
-  }
-
-  if (await tryConnectRedis()) {
-    console.log('✅ Redis connected');
-  } else {
-    console.warn('⚠️  Redis unavailable — caching disabled');
-  }
-
   const startIngestion = async () => {
     try {
       await ingestionService.start();
@@ -87,30 +74,48 @@ async function bootstrap() {
     }
   };
 
-  server.listen(env.PORT, () => {
-    console.log(`🚀 Trade-Pulse API running on port ${env.PORT}`);
-    console.log(`📡 WebSocket available at ws://localhost:${env.PORT}/ws`);
-    console.log(`🌍 Environment: ${env.NODE_ENV}`);
+  // Listen immediately so Railway/Vercel health checks pass while optional services connect.
+  await new Promise<void>((resolve) => {
+    server.listen(env.PORT, '0.0.0.0', () => {
+      console.log(`🚀 Trade-Pulse API running on port ${env.PORT}`);
+      console.log(`📡 WebSocket available at ws://0.0.0.0:${env.PORT}/ws`);
+      console.log(`🌍 Environment: ${env.NODE_ENV}`);
+      resolve();
+    });
   });
 
-  void startIngestion();
-  setTimeout(() => aggregationService.start(), env.NODE_ENV === 'production' ? 3_000 : 20_000);
-  // Avoid aggressive restart loops on cloud free tiers
-  setInterval(() => {
-    const hasAggregation = aggregationService.getMarkets().length > 0;
-    if (hasAggregation) return;
-    if (ingestionService.getLiveOpportunities().length === 0) {
-      ingestionService.prepareRestart();
-      void startIngestion();
+  void (async () => {
+    const dbReady = await db.init();
+    if (dbReady) {
+      console.log('✅ Firestore connected');
+    } else {
+      console.warn('⚠️  Firestore unavailable — user/market persistence disabled');
     }
-  }, 5 * 60_000);
 
-  await initPushNotifications();
-  try {
-    await processPushQueue();
-  } catch {
-    console.warn('⚠️  Push notification queue unavailable');
-  }
+    if (await tryConnectRedis()) {
+      console.log('✅ Redis connected');
+    } else {
+      console.warn('⚠️  Redis unavailable — caching disabled');
+    }
+
+    void startIngestion();
+    setTimeout(() => aggregationService.start(), env.NODE_ENV === 'production' ? 3_000 : 20_000);
+    setInterval(() => {
+      const hasAggregation = aggregationService.getMarkets().length > 0;
+      if (hasAggregation) return;
+      if (ingestionService.getLiveOpportunities().length === 0) {
+        ingestionService.prepareRestart();
+        void startIngestion();
+      }
+    }, 5 * 60_000);
+
+    await initPushNotifications();
+    try {
+      await processPushQueue();
+    } catch {
+      console.warn('⚠️  Push notification queue unavailable');
+    }
+  })();
 }
 
 bootstrap().catch((err) => {
