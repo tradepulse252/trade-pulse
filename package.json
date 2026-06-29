@@ -17,6 +17,8 @@
     "setup:render": "node scripts/setup-render-full.mjs",
     "deploy:render": "powershell -ExecutionPolicy Bypass -File scripts/deploy-render.ps1",
     "setup:railway": "node scripts/setup-railway-full.mjs",
+    "fix:railway-firebase": "node scripts/fix-railway-firebase-key.mjs",
+    "seed:admin:railway": "node scripts/seed-admin-railway.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:build": "docker compose build"

@@ -70,7 +70,8 @@ export async function pingFirestore(): Promise<boolean> {
       { merge: true }
     );
     return true;
-  } catch {
+  } catch (error) {
+    console.warn('[firebase] Ping failed:', (error as Error).message);
     return false;
   }
 }

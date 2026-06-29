@@ -43,7 +43,17 @@ export async function processPushQueue(): Promise<void> {
   if (!redis) return;
 
   const subscriber = redis.duplicate();
-  await subscriber.subscribe('push-notifications');
+  try {
+    await Promise.race([
+      subscriber.subscribe('push-notifications'),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis subscribe timeout')), 5000)
+      ),
+    ]);
+  } catch (err) {
+    console.warn('[push] Queue unavailable:', (err as Error).message);
+    return;
+  }
 
   subscriber.on('message', async (_channel: string, message: string) => {
     try {
