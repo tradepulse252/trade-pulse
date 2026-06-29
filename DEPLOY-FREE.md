@@ -6,12 +6,12 @@ Deploy the full app online using free/low-cost tiers.
 |---------|-------|------|
 | **GitHub** | Source code | Version control |
 | **Vercel** | Next.js frontend | Dashboard, Signals, Journal UI |
-| **Backend** | **Render** (free) or Northflank | API, auth, journal CRUD, WebSocket |
+| **Backend** | **Railway** (recommended) or Render / Northflank | API, auth, journal CRUD, WebSocket |
 | **Firebase Firestore** | Database | Users, journal, watchlist |
 | **Upstash** | Redis (optional) | Cache |
 
-> **Easiest backend (no card):** Render — see **`RENDER-SETUP.md`**  
-> **Alternative:** Northflank — see **`NORTHFLANK-SETUP.md`**
+> **Recommended backend:** Railway — see **`RAILWAY-SETUP.md`** (~$5/mo, always on)  
+> **Free backend:** Render — see **`RENDER-SETUP.md`** (sleeps when idle)
 
 > **Total time:** ~30–45 minutes · **Cost:** $0 on Always Free tiers
 

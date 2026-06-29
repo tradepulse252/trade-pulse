@@ -1,0 +1,14 @@
+# Trade-Pulse API — Railway (Docker)
+# Docs: https://docs.railway.com/config-as-code/reference
+# Dashboard: set Root Directory = /backend, Config file = /backend/railway.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+watchPatterns = ["src/**", "Dockerfile", "package.json", "railway.toml"]
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

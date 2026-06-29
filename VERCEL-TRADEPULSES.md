@@ -1,45 +1,42 @@
-# Vercel — tradepulses.vercel.app setup
+# Vercel — tradepulses.vercel.app
 
-The domain **https://tradepulses.vercel.app** is on a **different Vercel account** than `cmc252/tradepulse`.
-
-Configure the project that owns **tradepulses.vercel.app**:
+Connect frontend to **Railway** backend.
 
 ---
 
-## 1. Open Vercel project
-
-1. Log in to the Vercel account that has **tradepulses.vercel.app**
-2. Open that project → **Settings → Git**
-3. Connect: **https://github.com/tradepulse252/trade-pulse**
-4. **Root Directory:** `frontend`
-5. Production branch: **`main`**
-
----
-
-## 2. Environment variables (Production)
+## Environment variables (Production)
 
 | Key | Value |
 |-----|-------|
-| `NEXT_PUBLIC_API_URL` | `https://tradepulse-api.onrender.com` |
-| `NEXT_PUBLIC_WS_URL` | `wss://tradepulse-api.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | `https://YOUR-SERVICE.up.railway.app` |
+| `NEXT_PUBLIC_WS_URL` | `wss://YOUR-SERVICE.up.railway.app` |
 
-Save → **Redeploy**.
-
----
-
-## 3. Verify
-
-- https://tradepulses.vercel.app
-- https://tradepulses.vercel.app/journal
+Replace with your Railway public domain from **Networking → Generate Domain**.
 
 ---
 
-## CLI (if logged into that account)
+## Git connection
+
+1. Vercel → project **tradepulses**
+2. **Settings → Git** → `tradepulse252/trade-pulse`
+3. **Root Directory:** `frontend`
+4. Branch: `main`
+
+---
+
+## Redeploy
 
 ```powershell
 cd frontend
-npx vercel link
 npx vercel env add NEXT_PUBLIC_API_URL production
 npx vercel env add NEXT_PUBLIC_WS_URL production
-npx vercel --prod
+npx vercel --prod --yes
 ```
+
+Or Vercel Dashboard → Deployments → Redeploy.
+
+---
+
+## App URL
+
+**https://tradepulses.vercel.app**
