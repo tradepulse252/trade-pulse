@@ -46,3 +46,6 @@ mobile/.flutter-plugins-dependencies
 
 # Docker
 *.pid
+
+# Railway local deploy staging
+.railway-staging/

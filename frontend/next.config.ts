@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
-const PRODUCTION_API_URL = 'https://tradepulse-api-production.up.railway.app';
-const PRODUCTION_WS_URL = 'wss://tradepulse-api-production.up.railway.app';
+const PRODUCTION_API_URL = 'https://tradepulse-production-a56b.up.railway.app';
+const PRODUCTION_WS_URL = 'wss://tradepulse-production-a56b.up.railway.app';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
