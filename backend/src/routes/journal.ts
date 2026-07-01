@@ -12,6 +12,7 @@ router.use(authenticate);
 const entrySchema = z.object({
   tradeDate: z.string(),
   coin: z.string().min(1),
+  exchange: z.string().min(1),
   direction: z.nativeEnum(TradeDirection),
   entryPrice: z.number().positive(),
   exitPrice: z.number().positive(),
@@ -36,6 +37,7 @@ function serializeEntry(entry: {
   id: string;
   tradeDate: Date;
   coin: string;
+  exchange?: string | null;
   direction: TradeDirection;
   entryPrice: number;
   exitPrice: number;
@@ -51,6 +53,7 @@ function serializeEntry(entry: {
     id: entry.id,
     tradeDate: entry.tradeDate.toISOString().slice(0, 10),
     coin: entry.coin,
+    exchange: entry.exchange ?? null,
     direction: entry.direction,
     entryPrice: entry.entryPrice,
     exitPrice: entry.exitPrice,
@@ -144,6 +147,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   const entry = await db.journal.create(req.userId!, {
     tradeDate,
     coin: parsed.data.coin.toUpperCase(),
+    exchange: parsed.data.exchange,
     direction: parsed.data.direction,
     entryPrice: parsed.data.entryPrice,
     exitPrice: parsed.data.exitPrice,
@@ -178,6 +182,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   const entry = await db.journal.update(req.userId!, String(req.params.id), {
     tradeDate,
     coin: parsed.data.coin.toUpperCase(),
+    exchange: parsed.data.exchange,
     direction: parsed.data.direction,
     entryPrice: parsed.data.entryPrice,
     exitPrice: parsed.data.exitPrice,

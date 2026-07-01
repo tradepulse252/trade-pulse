@@ -27,35 +27,38 @@ export function formatFunding(rate: number): string {
   return `${(rate * 100).toFixed(4)}%`;
 }
 
+export function normalizeSignalType(type: string): string {
+  if (type === 'STRONG_LONG') return 'WEAK_LONG';
+  if (type === 'STRONG_SHORT') return 'WEAK_SHORT';
+  return type;
+}
+
 export function getSignalLabel(type: string): string {
+  const normalized = normalizeSignalType(type);
   const labels: Record<string, string> = {
-    STRONG_LONG: 'Strong Long',
-    WEAK_LONG: 'Slightly Long',
-    STRONG_SHORT: 'Strong Short',
-    WEAK_SHORT: 'Slightly Short',
+    WEAK_LONG: 'Long Opportunity',
+    WEAK_SHORT: 'Short Opportunity',
     NEUTRAL: 'Neutral',
   };
-  return labels[type] ?? type;
+  return labels[normalized] ?? normalized;
 }
 
 export function getSignalClass(type: string): string {
+  const normalized = normalizeSignalType(type);
   const classes: Record<string, string> = {
-    STRONG_LONG: 'signal-strong-long',
     WEAK_LONG: 'signal-weak-long',
-    STRONG_SHORT: 'signal-strong-short',
     WEAK_SHORT: 'signal-weak-short',
     NEUTRAL: 'signal-neutral',
   };
-  return classes[type] ?? 'signal-neutral';
+  return classes[normalized] ?? 'signal-neutral';
 }
 
 export function getSignalEmoji(type: string): string {
+  const normalized = normalizeSignalType(type);
   const emojis: Record<string, string> = {
-    STRONG_LONG: '🔥',
     WEAK_LONG: '🟢',
-    STRONG_SHORT: '🔴',
     WEAK_SHORT: '🟠',
     NEUTRAL: '—',
   };
-  return emojis[type] ?? '';
+  return emojis[normalized] ?? '';
 }

@@ -60,6 +60,7 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
   COINGLASS_API_KEY: z.string().optional().default(''),
+  CRYPTOQUANT_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

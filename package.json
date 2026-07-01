@@ -22,7 +22,8 @@
     "seed:admin:railway": "node scripts/seed-admin-railway.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:build": "docker compose build"
+    "docker:build": "docker compose build",
+    "docs:formula-pdf": "node scripts/generate-formula-pdf.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

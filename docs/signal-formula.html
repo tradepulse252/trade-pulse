@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TradePulse — Long / Short Signal Formula</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.55; }
+    .cover { background: linear-gradient(135deg, #0a0e14, #1e293b); color: #f8fafc; padding: 32px; border-radius: 12px; margin-bottom: 24px; }
+    .cover h1 { font-size: 20pt; margin-bottom: 8px; }
+    .cover p { color: #94a3b8; font-size: 10pt; }
+    h2 { font-size: 13pt; margin: 20px 0 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+    th { background: #f1f5f9; }
+    .long { color: #16a34a; font-weight: 600; }
+    .short { color: #ea580c; font-weight: 600; }
+    .box { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; margin: 10px 0; font-size: 9pt; }
+    .footer { margin-top: 24px; text-align: center; font-size: 8pt; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <h1>TradePulse Signal Formula</h1>
+    <p>Long Opportunity &amp; Short Opportunity classification rules</p>
+  </div>
+
+  <h2 class="long">Long Signal Formula</h2>
+  <table>
+    <tr><th>Condition</th><th>Requirement</th></tr>
+    <tr><td>Price</td><td>Sideways (consolidation) — |move| ≤ 2% across 4h→5m</td></tr>
+    <tr><td>Open Interest</td><td>↑↑↑ Strong rise (≥ 3% on 1h/4h)</td></tr>
+    <tr><td>Volume</td><td>Slightly increasing (+0.3% to +5%)</td></tr>
+    <tr><td>Flow</td><td>Inflow &gt; Outflow (checked 4h → 5m timeframes)</td></tr>
+    <tr><td>Funding Rate</td><td>Negative or slightly negative</td></tr>
+    <tr><td>Long Liquidations</td><td>Low</td></tr>
+  </table>
+
+  <h2 class="short">Short Signal Formula</h2>
+  <table>
+    <tr><th>Condition</th><th>Requirement</th></tr>
+    <tr><td>Price</td><td>Big move OR sideways</td></tr>
+    <tr><td>Open Interest</td><td>↑↑↑ Strong rise (≥ 3%)</td></tr>
+    <tr><td>Volume</td><td>Slightly decreasing (−5% to −0.3%)</td></tr>
+    <tr><td>Flow</td><td>Outflow &gt; Inflow (checked 4h → 5m)</td></tr>
+    <tr><td>Funding Rate</td><td>Highly positive (≥ 0.03%)</td></tr>
+    <tr><td>Long/Short Ratio</td><td>Too many shorts (ratio ≤ 0.92)</td></tr>
+  </table>
+
+  <h2>Classification</h2>
+  <div class="box">
+    Score each side: 6 conditions per formula.<br>
+    Long Opportunity: ≥ 5/6 long conditions met (≥ 4/6 with strong OI + funding).<br>
+    Short Opportunity: ≥ 5/6 short conditions met (≥ 4/6 with strong OI + funding).<br>
+    Otherwise: Neutral.
+  </div>
+
+  <div class="footer">TradePulse · Signal Formula · Updated 2026</div>
+</body>
+</html>

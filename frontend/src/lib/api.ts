@@ -1,3 +1,5 @@
+import { normalizeSignalType } from './utils';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export interface Opportunity {
@@ -36,11 +38,36 @@ export interface AggregatedMarket {
   exchanges: string[];
   growthMatrix?: Record<string, { priceChangePct: number; oiChangePct: number; volumeChangePct: number }>;
   signalConditions?: {
-    highOi: boolean;
-    highVolume: boolean;
-    fundingMatch: boolean;
+    priceSideways?: boolean;
+    priceBigMove?: boolean;
+    strongOi?: boolean;
+    volumeSlightlyUp?: boolean;
+    volumeSlightlyDown?: boolean;
+    inflowDominant?: boolean;
+    outflowDominant?: boolean;
+    fundingLong?: boolean;
+    fundingShort?: boolean;
+    lowLongLiq?: boolean;
+    tooManyShort?: boolean;
+    longMatchCount?: number;
+    shortMatchCount?: number;
     matchCount: number;
     fundingBand: string;
+    highOi?: boolean;
+    highVolume?: boolean;
+    fundingMatch?: boolean;
+    onChainLong?: boolean;
+    onChainShort?: boolean;
+  };
+  onChainMetrics?: {
+    exchangeInflow: number;
+    exchangeOutflow: number;
+    netflow: number;
+    whaleRatio: number;
+    stablecoinInflow: number;
+    exchangeReserve: number;
+    reserveChangePct: number;
+    source: string;
   };
   venues?: VenueSnapshot[];
   flowMatrix?: Record<string, { inflow: number; outflow: number; netInflow: number; netChgPct: number; netInflowMcap: number }>;
@@ -178,6 +205,13 @@ export async function getOpportunities(filters?: OpportunityFilters): Promise<Op
 
 export type MarketSort = 'marketCap' | 'volume' | 'openInterest' | 'funding' | 'score' | 'priceChange';
 
+function normalizeMarketSignals<T extends { signalType: string }>(items: T[]): T[] {
+  return items.map((item) => ({
+    ...item,
+    signalType: normalizeSignalType(item.signalType),
+  }));
+}
+
 function opportunityToAggregated(opp: Opportunity): AggregatedMarket {
   const baseAsset = opp.symbol.replace('USDT', '');
   return {
@@ -192,7 +226,7 @@ function opportunityToAggregated(opp: Opportunity): AggregatedMarket {
     oiChangePct: opp.oiChangePct,
     volumeChangePct: opp.volumeChangePct,
     priceMomentum: opp.priceMomentum,
-    signalType: opp.signalType,
+    signalType: normalizeSignalType(opp.signalType),
     opportunityScore: opp.opportunityScore,
     rank: opp.rank,
     venueCount: 1,
@@ -222,7 +256,7 @@ function sortAggregated(data: AggregatedMarket[], sort: MarketSort): AggregatedM
 export async function getAggregatedMarkets(sort: MarketSort = 'marketCap', limit = 500): Promise<AggregatedMarket[]> {
   try {
     const result = await fetchApi<{ data: AggregatedMarket[] }>(`/markets?sort=${sort}&limit=${limit}`);
-    return result.data;
+    return normalizeMarketSignals(result.data);
   } catch (err) {
     const msg = (err as Error).message;
     if (!msg.includes('404')) throw err;
@@ -236,16 +270,18 @@ export async function getSignals(limit = 200, signalType?: string): Promise<Aggr
     const params = new URLSearchParams({ limit: String(limit) });
     if (signalType) params.set('signalType', signalType);
     const result = await fetchApi<{ data: AggregatedMarket[] }>(`/signals?${params}`);
-    return result.data;
+    return normalizeMarketSignals(result.data);
   } catch (err) {
     const msg = (err as Error).message;
     if (!msg.includes('404')) throw err;
     const opps = await getOpportunities({ limit });
-    return opps
-      .filter((o) => o.signalType !== 'NEUTRAL')
-      .filter((o) => !signalType || o.signalType === signalType)
-      .map(opportunityToAggregated)
-      .sort((a, b) => b.opportunityScore - a.opportunityScore);
+    return normalizeMarketSignals(
+      opps
+        .filter((o) => normalizeSignalType(o.signalType) !== 'NEUTRAL')
+        .filter((o) => !signalType || normalizeSignalType(o.signalType) === signalType)
+        .map(opportunityToAggregated)
+        .sort((a, b) => b.opportunityScore - a.opportunityScore)
+    );
   }
 }
 

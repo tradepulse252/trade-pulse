@@ -62,10 +62,8 @@ export function OpportunityFilters({ filters, onChange, alwaysOpen }: FiltersPro
               <label className="text-[11px] text-muted-foreground mb-1.5 block">Signal Type</label>
               <Select value={String(filters.signalType ?? '')} onChange={(e) => update('signalType', e.target.value)} className="dashboard-input">
                 <option value="">All Signals</option>
-                <option value="STRONG_LONG">Strong Long</option>
-                <option value="WEAK_LONG">Slightly Long</option>
-                <option value="STRONG_SHORT">Strong Short</option>
-                <option value="WEAK_SHORT">Slightly Short</option>
+                <option value="WEAK_LONG">Long Opportunity</option>
+                <option value="WEAK_SHORT">Short Opportunity</option>
                 <option value="NEUTRAL">Neutral</option>
               </Select>
             </div>

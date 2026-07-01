@@ -1,5 +1,6 @@
 import { fetchAllVenues, fetchMarketCaps } from './fetch-venues';
 import { buildGrowthMatrix, evaluateSignal, opportunityScore } from './scoring';
+import { normalizeSignalType } from '@/lib/utils';
 import type { AggregatedMarket, GainerLoser } from './types';
 
 const CACHE_MS = 90_000;
@@ -55,7 +56,7 @@ function aggregate(venues: Awaited<ReturnType<typeof fetchAllVenues>>, caps: Map
       oiChangePct: 0,
       volumeChangePct: 0,
       priceMomentum: priceChange24h,
-      signalType,
+      signalType: normalizeSignalType(signalType),
       opportunityScore: score,
       venueCount: list.length,
       exchanges: [...new Set(list.map((v) => v.exchange))],

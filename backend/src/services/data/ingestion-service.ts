@@ -8,6 +8,7 @@ import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import {
   calculateOpportunityScore,
   classifySignal,
+  normalizeSignalType,
   rankOpportunities,
 } from '../scoring/opportunity-engine';
 import { alertEngine } from '../alert/alert-engine';
@@ -212,11 +213,8 @@ class IngestionService {
       }
       const lookback = primary ?? { priceChangePct: snapshot.priceChange24h, oiChangePct: 0, volumeChangePct: 0 };
 
-      const signalType = classifySignal(
-        lookback.oiChangePct,
-        lookback.volumeChangePct,
-        snapshot.fundingRate,
-        lookback.priceChangePct
+      const signalType = normalizeSignalType(
+        classifySignal(lookback.oiChangePct, lookback.volumeChangePct, snapshot.fundingRate)
       );
 
       const { score, priceMomentum, oiChangePct, volumeChangePct } = calculateOpportunityScore(
@@ -566,11 +564,8 @@ class IngestionService {
         }
         const lookback = primary ?? { priceChangePct: snapshot.priceChange24h, oiChangePct: 0, volumeChangePct: 0 };
 
-        const signalType = classifySignal(
-          lookback.oiChangePct,
-          lookback.volumeChangePct,
-          snapshot.fundingRate,
-          lookback.priceChangePct
+        const signalType = normalizeSignalType(
+          classifySignal(lookback.oiChangePct, lookback.volumeChangePct, snapshot.fundingRate)
         );
 
         const { score, priceMomentum, oiChangePct, volumeChangePct } = calculateOpportunityScore(

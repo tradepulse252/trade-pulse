@@ -14,23 +14,27 @@ import { TimeframeNav } from '@/components/dashboard/TimeframeNav';
 import { type FlowTimeframe } from '@/lib/flow';
 import { getTfMetric } from '@/lib/metrics';
 import { getTimeframeLabel, type TimeframeKey } from '@/lib/sorting';
-import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel } from '@/lib/utils';
+import { cn, formatFunding, formatPct, getSignalClass, getSignalEmoji, getSignalLabel, normalizeSignalType } from '@/lib/utils';
 import { Loader2, ArrowUpRight, Check, X } from 'lucide-react';
 import { useOpportunities } from '@/hooks/useOpportunities';
 
 const SIGNAL_FILTERS = [
   { key: 'ALL', label: 'All Signals' },
-  { key: 'STRONG_LONG', label: 'Strong Long' },
-  { key: 'WEAK_LONG', label: 'Slightly Long' },
-  { key: 'STRONG_SHORT', label: 'Strong Short' },
-  { key: 'WEAK_SHORT', label: 'Slightly Short' },
+  { key: 'WEAK_LONG', label: 'Long Opportunity' },
+  { key: 'WEAK_SHORT', label: 'Short Opportunity' },
 ] as const;
 
 const FORMULA_ROWS = [
-  { signal: 'Strong Long', rule: 'High OI + High Volume + Negative funding', type: 'STRONG_LONG' },
-  { signal: 'Slightly Long', rule: 'High OI + High Volume + Slightly negative funding', type: 'WEAK_LONG' },
-  { signal: 'Strong Short', rule: 'High OI + High Volume + Positive funding', type: 'STRONG_SHORT' },
-  { signal: 'Slightly Short', rule: 'High OI + High Volume + Slightly positive funding', type: 'WEAK_SHORT' },
+  {
+    signal: 'Long Opportunity',
+    rule: 'Price sideways · OI ↑↑↑ · Volume slightly ↑ · Inflow > Outflow (4h→5m) · Funding negative/slightly negative · Long liquidations low',
+    type: 'WEAK_LONG',
+  },
+  {
+    signal: 'Short Opportunity',
+    rule: 'Price big move or sideways · OI ↑↑↑ · Volume slightly ↓ · Outflow > Inflow (4h→5m) · Funding highly positive · L/S ratio = too many shorts',
+    type: 'WEAK_SHORT',
+  },
 ] as const;
 
 function ConditionBadge({ met, label }: { met: boolean; label: string }) {
@@ -55,18 +59,46 @@ function SignalConditions({ market }: { market: AggregatedMarket }) {
   if (!c) {
     return (
       <div className="flex flex-wrap gap-1 mt-1">
-        <ConditionBadge met={market.oiChangePct >= 3} label="OI" />
-        <ConditionBadge met={market.volumeChangePct >= 5} label="Vol" />
-        <ConditionBadge met={Math.abs(market.avgFundingRate) >= 0.00005} label="Fund" />
+        <ConditionBadge met={market.oiChangePct >= 3} label="OI↑↑↑" />
+        <ConditionBadge met={market.volumeChangePct >= 0.3 && market.volumeChangePct <= 5} label="Vol↑" />
+        <ConditionBadge met={market.avgFundingRate <= -0.00005} label="Fund−" />
       </div>
     );
   }
+  const isLong = normalizeSignalType(market.signalType) === 'WEAK_LONG';
+  const isShort = normalizeSignalType(market.signalType) === 'WEAK_SHORT';
   return (
     <div className="flex flex-wrap gap-1 mt-1">
-      <ConditionBadge met={c.highOi} label="OI" />
-      <ConditionBadge met={c.highVolume} label="Vol" />
-      <ConditionBadge met={c.fundingMatch} label="Fund" />
-      <span className="text-[10px] text-muted-foreground self-center">{c.matchCount}/3</span>
+      {isLong && (
+        <>
+          <ConditionBadge met={!!c.priceSideways} label="Sideways" />
+          <ConditionBadge met={!!(c.strongOi ?? c.highOi)} label="OI↑↑↑" />
+          <ConditionBadge met={!!c.volumeSlightlyUp} label="Vol↑" />
+          <ConditionBadge met={!!c.inflowDominant} label="In>Out" />
+          <ConditionBadge met={!!c.fundingLong} label="Fund−" />
+          <ConditionBadge met={!!c.lowLongLiq} label="L.Liq↓" />
+        </>
+      )}
+      {isShort && (
+        <>
+          <ConditionBadge met={!!(c.priceBigMove || c.priceSideways)} label="Price" />
+          <ConditionBadge met={!!(c.strongOi ?? c.highOi)} label="OI↑↑↑" />
+          <ConditionBadge met={!!c.volumeSlightlyDown} label="Vol↓" />
+          <ConditionBadge met={!!c.outflowDominant} label="Out>In" />
+          <ConditionBadge met={!!c.fundingShort} label="Fund++" />
+          <ConditionBadge met={!!c.tooManyShort} label="Shorters" />
+        </>
+      )}
+      {!isLong && !isShort && (
+        <>
+          <ConditionBadge met={!!(c.strongOi ?? c.highOi)} label="OI" />
+          <ConditionBadge met={!!(c.inflowDominant || c.outflowDominant)} label="Flow" />
+          <ConditionBadge met={!!(c.fundingLong || c.fundingShort)} label="Fund" />
+        </>
+      )}
+      <span className="text-[10px] text-muted-foreground self-center">
+        {isLong ? c.longMatchCount ?? c.matchCount : isShort ? c.shortMatchCount ?? c.matchCount : c.matchCount}/6
+      </span>
     </div>
   );
 }
@@ -89,21 +121,30 @@ export default function SignalsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const normalizedSignals = useMemo(
+    () => signals.map((s) => ({ ...s, signalType: normalizeSignalType(s.signalType) })),
+    [signals]
+  );
+
   const filtered = useMemo(() => {
-    let list = filter === 'ALL' ? signals : signals.filter((s) => s.signalType === filter);
+    let list =
+      filter === 'ALL'
+        ? normalizedSignals.filter((s) => s.signalType !== 'NEUTRAL')
+        : normalizedSignals.filter((s) => s.signalType === filter);
     if (search.trim()) {
       list = list.filter((s) => matchSymbolSearch(search, s.baseAsset, s.symbol));
     }
     return list;
-  }, [signals, filter, search]);
+  }, [normalizedSignals, filter, search]);
 
   const counts = useMemo(() => {
-    const map: Record<string, number> = { ALL: signals.length };
-    for (const s of signals) {
-      map[s.signalType] = (map[s.signalType] ?? 0) + 1;
-    }
-    return map;
-  }, [signals]);
+    const active = normalizedSignals.filter((s) => s.signalType !== 'NEUTRAL');
+    return {
+      ALL: active.length,
+      WEAK_LONG: active.filter((s) => s.signalType === 'WEAK_LONG').length,
+      WEAK_SHORT: active.filter((s) => s.signalType === 'WEAK_SHORT').length,
+    };
+  }, [normalizedSignals]);
 
   return (
     <AppShell connected={connected}>
@@ -111,12 +152,12 @@ export default function SignalsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Signals</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-            Live formula on Binance, Bybit, OKX, MEXC, Coinbase, Kraken (CEX) + Hyperliquid & Aster (DEX).
-            CoinGecko aggregator fills gaps when an exchange API is unavailable.
+            Long &amp; Short opportunities from OI, volume, funding, inflow/outflow (4h→5m), liquidations, and L/S ratio
+            across Binance, Bybit, OKX, MEXC, Coinbase, Kraken, Hyperliquid &amp; Aster.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {FORMULA_ROWS.map((row) => (
             <div key={row.type} className="glass-card p-4 text-xs">
               <p className={cn('font-semibold mb-1', getSignalClass(row.type))}>

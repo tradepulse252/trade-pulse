@@ -5,6 +5,7 @@ export interface JournalEntry {
   id: string;
   tradeDate: string;
   coin: string;
+  exchange: string | null;
   direction: TradeDirection;
   entryPrice: number;
   exitPrice: number;
@@ -39,6 +40,7 @@ export interface JournalFilters {
 export interface TradeFormData {
   tradeDate: string;
   coin: string;
+  exchange: string;
   direction: TradeDirection;
   entryPrice: string;
   exitPrice: string;
@@ -135,6 +137,7 @@ export async function createJournalEntry(
     body: JSON.stringify({
       tradeDate: data.tradeDate,
       coin: data.coin.toUpperCase(),
+      exchange: data.exchange || null,
       direction: data.direction,
       entryPrice: Number(data.entryPrice),
       exitPrice: Number(data.exitPrice),
@@ -164,6 +167,7 @@ export async function updateJournalEntry(
     body: JSON.stringify({
       tradeDate: data.tradeDate,
       coin: data.coin.toUpperCase(),
+      exchange: data.exchange || null,
       direction: data.direction,
       entryPrice: Number(data.entryPrice),
       exitPrice: Number(data.exitPrice),
@@ -188,6 +192,7 @@ export function emptyTradeForm(): TradeFormData {
   return {
     tradeDate: new Date().toISOString().slice(0, 10),
     coin: '',
+    exchange: '',
     direction: 'LONG',
     entryPrice: '',
     exitPrice: '',
@@ -200,6 +205,7 @@ export function entryToForm(entry: JournalEntry): TradeFormData {
   return {
     tradeDate: entry.tradeDate,
     coin: entry.coin,
+    exchange: entry.exchange ?? '',
     direction: entry.direction,
     entryPrice: String(entry.entryPrice),
     exitPrice: String(entry.exitPrice),

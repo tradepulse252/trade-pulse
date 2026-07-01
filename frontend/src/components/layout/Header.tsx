@@ -15,7 +15,7 @@ interface HeaderProps {
 const navItemsBase = [
   { href: '/', label: 'Dashboard', icon: BarChart3 },
   { href: '/watchlist', label: 'Watchlist', icon: Star },
-  { href: '/settings', label: 'API', icon: Settings },
+  { href: '/settings', label: 'API', icon: Settings, adminOnly: true },
   { href: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 

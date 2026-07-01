@@ -3,12 +3,17 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Activity, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { isAdmin } from '@/lib/nav';
 
 interface CoreSignalPanelProps {
   onRefresh?: () => void;
 }
 
 export function CoreSignalPanel({ onRefresh }: CoreSignalPanelProps) {
+  const { user } = useAuth();
+  const showSettings = isAdmin(user);
+
   return (
     <aside className="nebula-panel glass-card p-6 flex flex-col justify-between min-h-[320px] lg:min-h-0">
       <div>
@@ -25,11 +30,13 @@ export function CoreSignalPanel({ onRefresh }: CoreSignalPanelProps) {
       </div>
 
       <div className="flex flex-col gap-2.5 mt-8">
-        <Link href="/settings">
-          <Button className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium">
-            Configure API Keys
-          </Button>
-        </Link>
+        {showSettings && (
+          <Link href="/settings">
+            <Button className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium">
+              Configure API Keys
+            </Button>
+          </Link>
+        )}
         <Button
           variant="outline"
           onClick={onRefresh}

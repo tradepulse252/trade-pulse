@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { isAdmin } from '@/lib/nav';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -23,11 +26,25 @@ interface BinanceStatus {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<BinanceStatus | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (!isAdmin(user)) {
+      router.replace('/');
+    }
+  }, [user, authLoading, router]);
+
   const fetchStatus = async () => {
+    if (!user || !isAdmin(user)) return;
     try {
       const res = await fetch(`${API_URL}/api/settings/binance`);
       if (res.ok) setStatus(await res.json());
@@ -37,10 +54,11 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
+    if (!user || !isAdmin(user)) return;
     fetchStatus();
     const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const testConnection = async () => {
     setTestResult('Testing...');

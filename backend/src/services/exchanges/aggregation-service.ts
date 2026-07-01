@@ -1,6 +1,6 @@
 import { SignalType } from '../../lib/db/types';
 import { env, type TimeframeKey } from '../../config/env';
-import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal } from '../scoring/opportunity-engine';
+import { classifySignal, calculateOpportunityScore, rankOpportunities, evaluateSignal, normalizeSignalType } from '../scoring/opportunity-engine';
 import { buildGrowthMatrix } from '../scoring/growth-calculator';
 import { fetchBinanceVenues, enrichBinanceOpenInterest } from './binance-adapter';
 import { fetchBybitVenues } from './bybit-adapter';
@@ -27,7 +27,8 @@ import {
   weightedDexVolumeChange,
   type DefiLlamaProtocolStats,
 } from '../defillama/service';
-import type { AggregatedMarket, GainerLoser, VenueSnapshot, ExchangeId } from './types';
+import type { AggregatedMarket, GainerLoser, VenueSnapshot, ExchangeId, OnChainMetrics } from './types';
+import { fetchCryptoQuantBulk } from '../cryptoquant/service';
 
 const MAX_HISTORY_MS = 25 * 60 * 60 * 1000;
 const CARD_TIMEFRAMES: TimeframeKey[] = ['5m', '15m', '30m', '1h', '2h', '4h', '24h'];
@@ -174,6 +175,9 @@ class AggregationService {
   private lastCgFetch = 0;
   private defillamaStats: Map<ExchangeId, DefiLlamaProtocolStats> = new Map();
   private defillamaVenuesEnriched = false;
+  private cqOnChainCache = new Map<string, OnChainMetrics>();
+  private macroStablecoinInflow = 0;
+  private lastCqFetch = 0;
 
   private async refreshCoinGlassBulk() {
     if (!env.COINGLASS_API_KEY) return;
@@ -188,6 +192,47 @@ class AggregationService {
     }
     this.lastCgFetch = now;
     this.exchangeStatus.coinglass = 'ok';
+  }
+
+  private async refreshCryptoQuantBulk() {
+    const apiKey = env.CRYPTOQUANT_API_KEY?.trim();
+    if (!apiKey) {
+      this.exchangeStatus.cryptoquant = 'error';
+      return;
+    }
+    const now = Date.now();
+    if (now - this.lastCqFetch < 120_000 && this.cqOnChainCache.size > 0) return;
+
+    const map = await fetchCryptoQuantBulk();
+    const macro = map.get('_macro');
+    if (macro) {
+      this.macroStablecoinInflow = macro.stablecoinInflow;
+      map.delete('_macro');
+    }
+    this.cqOnChainCache = map;
+    this.lastCqFetch = now;
+    this.exchangeStatus.cryptoquant = map.size > 0 || this.macroStablecoinInflow > 0 ? 'ok' : 'error';
+  }
+
+  private resolveOnChainMetrics(baseAsset: string): OnChainMetrics | undefined {
+    const direct = this.cqOnChainCache.get(baseAsset);
+    if (direct) return direct;
+
+    if (this.macroStablecoinInflow > 0) {
+      return {
+        exchangeInflow: 0,
+        exchangeOutflow: 0,
+        netflow: 0,
+        whaleRatio: 0,
+        stablecoinInflow: this.macroStablecoinInflow,
+        exchangeReserve: 0,
+        reserveChangePct: 0,
+        source: 'cryptoquant',
+        updatedAt: Date.now(),
+      };
+    }
+
+    return undefined;
   }
 
   getDefiLlamaStats() {
@@ -264,16 +309,23 @@ class AggregationService {
       );
       if (dlStats.length > 0) dataSources.push('defillama');
 
-      const { signalType, conditions } = evaluateSignal(
-        growthMatrix['1h']?.oiChangePct ?? oiChangePct,
-        growthMatrix['1h']?.volumeChangePct ?? volumeChangePct,
-        avgFundingRate
-      );
+      const onChainMetrics = this.resolveOnChainMetrics(baseAsset);
+      if (onChainMetrics?.source === 'cryptoquant') dataSources.push('cryptoquant');
+
+      const { signalType: rawSignal, conditions } = evaluateSignal({
+        growthMatrix,
+        fundingRate: avgFundingRate,
+        priceChange24h,
+        totalVolumeUsdt: totalVolume,
+        onChain: onChainMetrics,
+      });
+      const signalType = normalizeSignalType(rawSignal);
       const { score, priceMomentum } = calculateOpportunityScore(
         growthMatrix,
         avgFundingRate,
         signalType,
-        conditions.matchCount
+        conditions.matchCount,
+        onChainMetrics
       );
 
       const meta = lookupMarketMeta(baseAsset, marketMeta);
@@ -299,6 +351,7 @@ class AggregationService {
         venues: list,
         growthMatrix,
         dataSources,
+        onChainMetrics,
         defillamaStats: dlStats.length > 0 ? dlStats : undefined,
       });
 
@@ -426,6 +479,7 @@ class AggregationService {
       }
 
       await this.refreshCoinGlassBulk();
+      await this.refreshCryptoQuantBulk();
 
       const baseAssets = [...new Set(allVenues.map((v) => v.baseAsset))];
       const marketMeta = await fetchCoinMarketMeta(baseAssets);

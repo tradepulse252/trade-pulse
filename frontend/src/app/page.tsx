@@ -10,7 +10,7 @@ import { GainersLosersPanel } from '@/components/dashboard/GainersLosersPanel';
 import { InsightStatCard } from '@/components/dashboard/InsightStatCard';
 import { useAggregatedMarkets } from '@/hooks/useAggregatedMarkets';
 import { useOpportunities } from '@/hooks/useOpportunities';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSignalType } from '@/lib/utils';
 import { ArrowRight, RefreshCw, TrendingUp, Zap, Target } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -25,8 +25,12 @@ export default function DashboardPage() {
     [markets]
   );
 
-  const strongLongs = markets.filter((m) => m.signalType === 'STRONG_LONG').length;
-  const strongShorts = markets.filter((m) => m.signalType === 'STRONG_SHORT').length;
+  const longOpportunities = markets.filter(
+    (m) => normalizeSignalType(m.signalType) === 'WEAK_LONG'
+  ).length;
+  const shortOpportunities = markets.filter(
+    (m) => normalizeSignalType(m.signalType) === 'WEAK_SHORT'
+  ).length;
   const avgScore =
     markets.length > 0 ? markets.reduce((s, m) => s + m.opportunityScore, 0) / markets.length : 0;
 
@@ -128,8 +132,8 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <InsightStatCard label="Strong Longs" value={String(strongLongs)} icon={TrendingUp} accent="long" />
-            <InsightStatCard label="Strong Shorts" value={String(strongShorts)} icon={Zap} accent="short" />
+            <InsightStatCard label="Long Opportunities" value={String(longOpportunities)} icon={TrendingUp} accent="long" />
+            <InsightStatCard label="Short Opportunities" value={String(shortOpportunities)} icon={Zap} accent="short" />
             <InsightStatCard label="Avg Score" value={avgScore.toFixed(1)} icon={Target} accent="primary" />
           </div>
         </section>

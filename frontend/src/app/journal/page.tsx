@@ -9,7 +9,7 @@ import { useOpportunities } from '@/hooks/useOpportunities';
 import { JournalFiltersBar, ViewToggle } from '@/components/journal/JournalFilters';
 import { PerformanceCards, SummaryStrip } from '@/components/journal/PerformanceCards';
 import { TradeCalendar } from '@/components/journal/TradeCalendar';
-import { TradeForm } from '@/components/journal/TradeForm';
+import { TradeFormModal } from '@/components/journal/TradeFormModal';
 import {
   DirectionBadge,
   PnlCell,
@@ -29,6 +29,7 @@ import {
   type JournalStats,
   type TradeFormData,
 } from '@/lib/journal';
+import { getExchangeLabel } from '@/lib/exchanges';
 import { BookOpen, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 
 const emptyStats: JournalStats = {
@@ -163,19 +164,16 @@ export default function TradeJournalPage() {
             </p>
           </div>
           <Button
+            type="button"
             onClick={() => {
-              if (showForm && !editingId) {
-                resetForm();
-              } else {
-                setEditingId(null);
-                setForm(emptyTradeForm());
-                setShowForm(true);
-              }
+              setEditingId(null);
+              setForm(emptyTradeForm());
+              setShowForm(true);
             }}
             className="shrink-0"
           >
             <Plus className="h-4 w-4 mr-1.5" />
-            {showForm && !editingId ? 'Close Form' : 'Add Trade'}
+            Add Trade
           </Button>
         </div>
 
@@ -197,16 +195,15 @@ export default function TradeJournalPage() {
           )}
         </div>
 
-        {showForm && (
-          <TradeForm
-            form={form}
-            onChange={setForm}
-            onSubmit={handleSubmit}
-            onCancel={resetForm}
-            submitting={submitting}
-            editing={!!editingId}
-          />
-        )}
+        <TradeFormModal
+          open={showForm}
+          form={form}
+          onChange={setForm}
+          onSubmit={handleSubmit}
+          onClose={resetForm}
+          submitting={submitting}
+          editing={!!editingId}
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -265,6 +262,7 @@ function TradeTable({
             <tr className="border-b border-white/[0.06] text-muted-foreground text-xs">
               <th className="text-left px-4 py-3 font-medium">Date</th>
               <th className="text-left px-4 py-3 font-medium">Coin</th>
+              <th className="text-left px-4 py-3 font-medium">Exchange</th>
               <th className="text-left px-4 py-3 font-medium">Direction</th>
               <th className="text-right px-4 py-3 font-medium">Entry</th>
               <th className="text-right px-4 py-3 font-medium">Exit</th>
@@ -286,6 +284,9 @@ function TradeTable({
                   <Link href={`/coin/${entry.coin}`} className="font-semibold hover:text-primary">
                     {entry.coin}
                   </Link>
+                </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {entry.exchange ? getExchangeLabel(entry.exchange) : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <DirectionBadge direction={entry.direction} />

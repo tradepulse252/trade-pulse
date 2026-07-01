@@ -24,23 +24,25 @@ class AlertEngine {
 
     if (prev) {
       if (
-        opportunity.signalType === 'STRONG_LONG' &&
+        (opportunity.signalType === 'WEAK_LONG' || opportunity.signalType === 'STRONG_LONG') &&
+        prev.signalType !== 'WEAK_LONG' &&
         prev.signalType !== 'STRONG_LONG'
       ) {
         alerts.push({
           type: AlertType.NEW_STRONG_LONG,
-          title: `🔥 Strong Long: ${snapshot.symbol}`,
+          title: `🟢 Long Opportunity: ${snapshot.symbol}`,
           message: `OI +${primary.oiChangePct.toFixed(2)}%, Vol +${primary.volumeChangePct.toFixed(2)}%, Funding ${(snapshot.fundingRate * 100).toFixed(4)}%`,
         });
       }
 
       if (
-        opportunity.signalType === 'STRONG_SHORT' &&
+        (opportunity.signalType === 'WEAK_SHORT' || opportunity.signalType === 'STRONG_SHORT') &&
+        prev.signalType !== 'WEAK_SHORT' &&
         prev.signalType !== 'STRONG_SHORT'
       ) {
         alerts.push({
           type: AlertType.NEW_STRONG_SHORT,
-          title: `🔴 Strong Short: ${snapshot.symbol}`,
+          title: `🟠 Short Opportunity: ${snapshot.symbol}`,
           message: `OI +${primary.oiChangePct.toFixed(2)}%, Vol +${primary.volumeChangePct.toFixed(2)}%, Funding ${(snapshot.fundingRate * 100).toFixed(4)}%`,
         });
       }

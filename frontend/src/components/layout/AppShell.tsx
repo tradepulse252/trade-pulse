@@ -21,7 +21,7 @@ const mobileNav = [
   { href: '/gainers-losers', label: 'Movers', icon: TrendingUp },
   { href: '/journal', label: 'Journal', icon: BookOpen },
   { href: '/watchlist', label: 'Watch', icon: Star },
-  { href: '/settings', label: 'API', icon: Settings },
+  { href: '/settings', label: 'API', icon: Settings, adminOnly: true },
   { href: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];
 

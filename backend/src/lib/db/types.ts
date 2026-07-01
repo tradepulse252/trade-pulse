@@ -128,6 +128,7 @@ export interface JournalEntryDoc {
   userId: string;
   tradeDate: Date;
   coin: string;
+  exchange: string | null;
   direction: TradeDirection;
   entryPrice: number;
   exitPrice: number;
