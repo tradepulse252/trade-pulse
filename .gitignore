@@ -49,3 +49,4 @@ mobile/.flutter-plugins-dependencies
 
 # Railway local deploy staging
 .railway-staging/
+backend/.railway-config-pull-*/
